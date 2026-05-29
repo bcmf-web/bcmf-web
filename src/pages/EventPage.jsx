@@ -3,7 +3,7 @@ import Progress from "../components/Progress.jsx";
 import MissionCard from "../components/MissionCard.jsx";
 import { styles } from "../styles/styles.js";
 import { canManageEvent } from "../services/permissions.js";
-import { skills } from "../data/initialData.js";
+import { skills } from "../data/InitialData.js";
 
 export default function EventPage({
   event,
