@@ -1,18 +1,34 @@
 import React, { useEffect, useState } from "react";
-import { users, events as initialEvents } from "./data/InitialData.js";
+import { users } from "./data/InitialData.js";
 import { supabase } from "./services/supabaseClient.js";
-
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import EventPage from "./pages/EventPage.jsx";
-
 import { styles } from "./styles/styles.js";
+import LoginPage from "./pages/LoginPage.jsx";
+
 
 export default function App() {
   const [currentUserId, setCurrentUserId] = useState(1);
 
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [session, setSession] = useState(null);
+  
+ useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    setSession(data.session);
+  });
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setSession(session);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
+
   
  useEffect(() => {
   async function loadEvents() {
@@ -348,6 +364,11 @@ export default function App() {
 		})
 	  );
 	}
+
+if (!session) {
+  return <LoginPage onLogin={() => {}} />;
+}
+
 
   if (selectedEvent) {
     return (
