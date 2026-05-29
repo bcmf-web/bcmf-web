@@ -1,4 +1,4 @@
-import { users } from "../data/initialData.js";
+import { users } from "../data/InitialData.js";
 import { styles } from "../styles/styles.js";
 
 export default function Header({ currentUser, currentUserId, setCurrentUserId }) {
