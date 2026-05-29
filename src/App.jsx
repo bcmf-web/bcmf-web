@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { users, events as initialEvents } from "./data/initialData.js";
+import { users, events as initialEvents } from "./data/InitialData.js";
 import { supabase } from "./services/supabaseClient.js";
 
 import Header from "./components/Header.jsx";
