@@ -20,19 +20,40 @@ export default function LoginPage({ onLogin }) {
     onLogin();
   }
 
-  async function signup() {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+	async function signup() {
+	  const { data, error } = await supabase.auth.signUp({
+		email,
+		password,
+	  });
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+	  if (error) {
+		alert(error.message);
+		return;
+	  }
 
-    alert("Compte créé. Vérifie tes emails si confirmation demandée.");
-  }
+	  const authUser = data.user;
+
+	  if (authUser) {
+		const { error: profileError } = await supabase.from("users").insert([
+		  {
+			id: authUser.id,
+			email: email,
+			name: email.split("@")[0],
+			role: "benevole",
+			team: null,
+			status: "pending",
+			skills: [],
+		  },
+		]);
+
+		if (profileError) {
+		  alert("Compte créé, mais erreur profil : " + profileError.message);
+		  return;
+		}
+	  }
+
+	  alert("Compte créé. En attente de validation par le club.");
+	}
 
   return (
     <div style={{ padding: 40, fontFamily: "Arial" }}>
