@@ -1,3 +1,7 @@
+const BCMF_GREEN = "#16a34a";
+const BCMF_GREEN_DARK = "#14532d";
+const BCMF_GREEN_LIGHT = "#dcfce7";
+
 export const styles = {
   page: {
     minHeight: "100vh",
@@ -7,7 +11,7 @@ export const styles = {
   },
 
   header: {
-    background: "linear-gradient(135deg, #111 0%, #2a2a2a 60%, #f58220 100%)",
+    background: `linear-gradient(135deg, #0f172a 0%, ${BCMF_GREEN_DARK} 60%, ${BCMF_GREEN} 100%)`,
     color: "white",
     borderRadius: 25,
     padding: 25,
@@ -68,6 +72,7 @@ export const styles = {
     padding: 20,
     borderRadius: 18,
     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+    borderTop: `5px solid ${BCMF_GREEN}`,
   },
 
   grid: {
@@ -91,11 +96,12 @@ export const styles = {
     borderRadius: 25,
     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
     marginTop: 25,
+    borderTop: `6px solid ${BCMF_GREEN}`,
   },
 
   badge: {
     display: "inline-block",
-    background: "#f58220",
+    background: BCMF_GREEN,
     color: "white",
     padding: "6px 12px",
     borderRadius: 999,
@@ -119,7 +125,7 @@ export const styles = {
 
   link: {
     marginTop: 15,
-    color: "#f58220",
+    color: BCMF_GREEN,
     fontWeight: "bold",
   },
 
@@ -135,7 +141,7 @@ export const styles = {
   },
 
   orangeButton: {
-    background: "#f58220",
+    background: BCMF_GREEN,
     color: "white",
     border: "none",
     padding: "12px 18px",
@@ -165,23 +171,22 @@ export const styles = {
   },
 
   adminNotice: {
-    background: "#fff3e0",
-    border: "1px solid #f58220",
-    color: "#8a4a00",
+    background: BCMF_GREEN_LIGHT,
+    border: `1px solid ${BCMF_GREEN}`,
+    color: BCMF_GREEN_DARK,
     padding: 15,
     borderRadius: 15,
     marginTop: 20,
     fontWeight: "bold",
   },
-  
+
   redButton: {
-  background: "#c0392b",
-  color: "white",
-  border: "none",
-  padding: "12px 18px",
-  borderRadius: 12,
-  cursor: "pointer",
-  fontWeight: "bold",
-},
-  
+    background: "#c0392b",
+    color: "white",
+    border: "none",
+    padding: "12px 18px",
+    borderRadius: 12,
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
 };
