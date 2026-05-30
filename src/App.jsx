@@ -386,32 +386,30 @@ useEffect(() => {
 	  );
 	}
 
-if (!session) {
-  return <LoginPage onLogin={() => {}} />;
-}
+  if (!session) {
+    return <LoginPage onLogin={() => {}} />;
+  }
 
-if (!currentUser) {
-  return (
-    <div style={styles.page}>
-      Chargement du profil...
-    </div>
-  );
-}
+  if (!currentUser) {
+    return (
+      <div style={styles.page}>
+        Chargement du profil...
+      </div>
+    );
+  }
 
-if (currentUser.status !== "approved") {
-  return (
-    <div style={styles.page}>
-      <h1>BCMF Crew</h1>
-      <h2>Compte en attente de validation</h2>
-      <p>
-        Votre compte a été créé avec succès.
-        Un administrateur doit maintenant le valider.
-      </p>
-    </div>
-  );
-}
-}
-
+  if (currentUser.status !== "approved") {
+    return (
+      <div style={styles.page}>
+        <h1>BCMF Crew</h1>
+        <h2>Compte en attente de validation</h2>
+        <p>
+          Votre compte a été créé avec succès.
+          Un administrateur doit maintenant le valider.
+        </p>
+      </div>
+    );
+  }
 
   if (selectedEvent) {
     return (
@@ -423,18 +421,18 @@ if (currentUser.status !== "approved") {
         />
 
         <EventPage
-            event={selectedEvent}
-			  currentUser={currentUser}
-			  eventCoverage={eventCoverage}
-			  onBack={() => setSelectedEventId(null)}
-			  onTakeMission={takeMission}
-			  onCancelMission={cancelMission}
-			  onAddMission={addMissionToEvent}
-			  onDeleteEvent={deleteEvent}
-			  onDeleteMission={deleteMission}
-			  onUpdateEvent={updateEvent}
-			  onUpdateMission={updateMission}
-			/>
+          event={selectedEvent}
+          currentUser={currentUser}
+          eventCoverage={eventCoverage}
+          onBack={() => setSelectedEventId(null)}
+          onTakeMission={takeMission}
+          onCancelMission={cancelMission}
+          onAddMission={addMissionToEvent}
+          onDeleteEvent={deleteEvent}
+          onDeleteMission={deleteMission}
+          onUpdateEvent={updateEvent}
+          onUpdateMission={updateMission}
+        />
       </div>
     );
   }
@@ -457,5 +455,3 @@ if (currentUser.status !== "approved") {
     </div>
   );
 }
-
-
