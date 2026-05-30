@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { users } from "./data/InitialData.js";
+
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -101,12 +101,7 @@ useEffect(() => {
   const currentUser = profile;
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
-  const visibleEvents =
-    currentUser.role === "admin"
-      ? events
-      : currentUser.role === "referent"
-      ? events.filter((e) => e.team === currentUser.team)
-      : events;
+
 
   function eventCoverage(event) {
     const total = event.missions.reduce((sum, mission) => sum + mission.need, 0);
@@ -301,6 +296,8 @@ useEffect(() => {
 		alert("Ton compte n'est pas validé.");
 		return;
 	  }
+	  
+	  
 
 	  const event = events.find((e) => e.id === eventId);
 	  const mission = event.missions.find((m) => m.id === missionId);
@@ -410,6 +407,14 @@ useEffect(() => {
       </div>
     );
   }
+  
+const visibleEvents =
+  currentUser.role === "admin"
+    ? events
+    : currentUser.role === "referent"
+    ? events.filter((e) => e.team === currentUser.team)
+    : events;
+
 
   if (selectedEvent) {
     return (
