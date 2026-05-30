@@ -9,7 +9,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 
 
 export default function App() {
-  const [currentUserId, setCurrentUserId] = useState(1);
+ 
 
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -420,11 +420,7 @@ const visibleEvents =
 if (page === "admin-users") {
   return (
     <div style={styles.page}>
-      <Header
-        currentUser={currentUser}
-        currentUserId={currentUserId}
-        setCurrentUserId={setCurrentUserId}
-      />
+      <Header currentUser={currentUser} />
 
       <AdminUsersPage
         currentUser={currentUser}
@@ -437,11 +433,7 @@ if (page === "admin-users") {
   if (selectedEvent) {
     return (
       <div style={styles.page}>
-        <Header
-          currentUser={currentUser}
-          currentUserId={currentUserId}
-          setCurrentUserId={setCurrentUserId}
-        />
+        <Header currentUser={currentUser} />
 
         <EventPage
           event={selectedEvent}
@@ -462,12 +454,7 @@ if (page === "admin-users") {
 
 return (
   <div style={styles.page}>
-    <Header
-      currentUser={currentUser}
-      currentUserId={currentUserId}
-      setCurrentUserId={setCurrentUserId}
-    />
-
+    <Header currentUser={currentUser} />
     {currentUser.role === "admin" && (
       <button
         style={styles.orangeButton}
