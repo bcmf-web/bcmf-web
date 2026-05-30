@@ -450,11 +450,33 @@ if (page === "admin-users") {
         />
       </div>
     );
+	
   }
+  
+  
 
 return (
   <div style={styles.page}>
     <Header currentUser={currentUser} />
+	
+	<div
+      style={{
+        background: "#fff8e1",
+        border: "1px solid #facc15",
+        color: "#92400e",
+        padding: "15px",
+        borderRadius: "12px",
+        marginTop: "15px",
+        marginBottom: "15px",
+        fontWeight: "bold",
+      }}
+    >
+      ⚠️ BCMF Flow – Bêta v0.1-beta
+      <br />
+      Cette application est actuellement en phase de test.
+      Merci de remonter toute anomalie ou suggestion d'amélioration.
+    </div>
+	
     {currentUser.role === "admin" && (
       <button
         style={styles.orangeButton}
