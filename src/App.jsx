@@ -14,6 +14,7 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   
  useEffect(() => {
   supabase.auth.getSession().then(({ data }) => {
@@ -29,6 +30,26 @@ export default function App() {
   return () => subscription.unsubscribe();
 }, []);
 
+useEffect(() => {
+  async function loadProfile() {
+    if (!session?.user?.id) return;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", session.user.id)
+      .single();
+
+    if (error) {
+      console.error("Erreur profil:", error);
+      return;
+    }
+
+    setProfile(data);
+  }
+
+  loadProfile();
+}, [session]);
   
  useEffect(() => {
   async function loadEvents() {
@@ -77,7 +98,7 @@ export default function App() {
     //localStorage.setItem("bcmf_events", JSON.stringify(events));
   //}, [events]);
 
-  const currentUser = users.find((u) => u.id === Number(currentUserId));
+  const currentUser = profile;
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
   const visibleEvents =
@@ -367,6 +388,28 @@ export default function App() {
 
 if (!session) {
   return <LoginPage onLogin={() => {}} />;
+}
+
+if (!currentUser) {
+  return (
+    <div style={styles.page}>
+      Chargement du profil...
+    </div>
+  );
+}
+
+if (currentUser.status !== "approved") {
+  return (
+    <div style={styles.page}>
+      <h1>BCMF Crew</h1>
+      <h2>Compte en attente de validation</h2>
+      <p>
+        Votre compte a été créé avec succès.
+        Un administrateur doit maintenant le valider.
+      </p>
+    </div>
+  );
+}
 }
 
 
