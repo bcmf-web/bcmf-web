@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-
+import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -15,6 +15,7 @@ export default function App() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [page, setPage] = useState("dashboard");
   
  useEffect(() => {
   supabase.auth.getSession().then(({ data }) => {
@@ -416,6 +417,23 @@ const visibleEvents =
     : events;
 
 
+if (page === "admin-users") {
+  return (
+    <div style={styles.page}>
+      <Header
+        currentUser={currentUser}
+        currentUserId={currentUserId}
+        setCurrentUserId={setCurrentUserId}
+      />
+
+      <AdminUsersPage
+        currentUser={currentUser}
+        onBack={() => setPage("dashboard")}
+      />
+    </div>
+  );
+}
+
   if (selectedEvent) {
     return (
       <div style={styles.page}>
@@ -442,21 +460,30 @@ const visibleEvents =
     );
   }
 
-  return (
-    <div style={styles.page}>
-      <Header
-        currentUser={currentUser}
-        currentUserId={currentUserId}
-        setCurrentUserId={setCurrentUserId}
-      />
+return (
+  <div style={styles.page}>
+    <Header
+      currentUser={currentUser}
+      currentUserId={currentUserId}
+      setCurrentUserId={setCurrentUserId}
+    />
 
-      <DashboardPage
-        currentUser={currentUser}
-        visibleEvents={visibleEvents}
-        eventCoverage={eventCoverage}
-        onOpenEvent={setSelectedEventId}
-        onAddEvent={addEvent}
-      />
-    </div>
-  );
+    {currentUser.role === "admin" && (
+      <button
+        style={styles.orangeButton}
+        onClick={() => setPage("admin-users")}
+      >
+        Administration utilisateurs
+      </button>
+    )}
+
+    <DashboardPage
+      currentUser={currentUser}
+      visibleEvents={visibleEvents}
+      eventCoverage={eventCoverage}
+      onOpenEvent={setSelectedEventId}
+      onAddEvent={addEvent}
+    />
+  </div>
+);
 }

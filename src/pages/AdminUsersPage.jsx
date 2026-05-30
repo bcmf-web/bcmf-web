@@ -1,0 +1,461 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../services/supabaseClient.js";
+import { styles } from "../styles/styles.js";
+import { skills } from "../data/InitialData.js";
+
+const teams = ["U9", "U11", "U13", "U15", "U18", "Seniors", "Club"];
+const roles = ["benevole", "referent", "admin"];
+const statuses = ["pending", "approved", "rejected"];
+
+export default function AdminUsersPage({ currentUser, onBack }) {
+  const [users, setUsers] = useState([]);
+  const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [teamFilter, setTeamFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [page, setPage] = useState(1);
+
+  const pageSize = 50;
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setUsers(data || []);
+  }
+
+  async function updateUser(userId, updates) {
+    const { error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("id", userId);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === userId ? { ...user, ...updates } : user
+      )
+    );
+
+    setSelectedUser((prev) =>
+      prev && prev.id === userId ? { ...prev, ...updates } : prev
+    );
+
+    setMessage("✅ Modifications enregistrées");
+
+    setTimeout(() => {
+      setMessage("");
+    }, 2000);
+  }
+
+  function toggleSkill(user, skill) {
+    const currentSkills = user.skills || [];
+
+    const newSkills = currentSkills.includes(skill)
+      ? currentSkills.filter((s) => s !== skill)
+      : [...currentSkills, skill];
+
+    updateUser(user.id, { skills: newSkills });
+  }
+
+  const counts = useMemo(() => {
+    return {
+      total: users.length,
+      pending: users.filter((u) => u.status === "pending").length,
+      approved: users.filter((u) => u.status === "approved").length,
+      rejected: users.filter((u) => u.status === "rejected").length,
+    };
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const search = query.toLowerCase();
+
+      const matchesSearch =
+        user.name?.toLowerCase().includes(search) ||
+        user.email?.toLowerCase().includes(search);
+
+      const matchesStatus =
+        statusFilter === "all" || user.status === statusFilter;
+
+      const matchesTeam =
+        teamFilter === "all" || user.team === teamFilter;
+
+      const matchesRole =
+        roleFilter === "all" || user.role === roleFilter;
+
+      return matchesSearch && matchesStatus && matchesTeam && matchesRole;
+    });
+  }, [users, query, statusFilter, teamFilter, roleFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+
+  const paginatedUsers = filteredUsers.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+
+  if (currentUser.role !== "admin") {
+    return (
+      <div>
+        <button style={styles.backButton} onClick={onBack}>
+          ← Retour
+        </button>
+
+        <h1>Accès refusé</h1>
+        <p>Cette page est réservée aux administrateurs.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button style={styles.backButton} onClick={onBack}>
+        ← Retour
+      </button>
+
+      <h1>Administration des utilisateurs</h1>
+
+      {message && (
+        <div
+          style={{
+            background: "#d4edda",
+            color: "#155724",
+            padding: "10px",
+            borderRadius: "8px",
+            marginBottom: "15px",
+            fontWeight: "bold",
+          }}
+        >
+          {message}
+        </div>
+      )}
+
+      <section style={styles.kpis}>
+        <div style={styles.kpi}>
+          <p>Total</p>
+          <strong>{counts.total}</strong>
+        </div>
+
+        <div style={styles.kpi}>
+          <p>🟡 En attente</p>
+          <strong>{counts.pending}</strong>
+        </div>
+
+        <div style={styles.kpi}>
+          <p>🟢 Validés</p>
+          <strong>{counts.approved}</strong>
+        </div>
+
+        <div style={styles.kpi}>
+          <p>🔴 Refusés</p>
+          <strong>{counts.rejected}</strong>
+        </div>
+      </section>
+
+      <section style={styles.panel}>
+        <h2>Filtres</h2>
+
+        <input
+          placeholder="Rechercher par nom ou email..."
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(1);
+          }}
+          style={styles.input}
+        />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            style={styles.input}
+          >
+            <option value="all">Tous les statuts</option>
+            {statuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={teamFilter}
+            onChange={(e) => {
+              setTeamFilter(e.target.value);
+              setPage(1);
+            }}
+            style={styles.input}
+          >
+            <option value="all">Toutes les équipes</option>
+            {teams.map((team) => (
+              <option key={team} value={team}>
+                {team}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(1);
+            }}
+            style={styles.input}
+          >
+            <option value="all">Tous les rôles</option>
+            {roles.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
+      <section style={styles.panel}>
+        <h2>
+          Utilisateurs affichés : {filteredUsers.length}
+        </h2>
+
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              background: "white",
+            }}
+          >
+            <thead>
+              <tr style={{ textAlign: "left", borderBottom: "2px solid #eee" }}>
+                <th style={thStyle}>Nom</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Statut</th>
+                <th style={thStyle}>Rôle</th>
+                <th style={thStyle}>Équipe</th>
+                <th style={thStyle}>Habilitations</th>
+                <th style={thStyle}>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {paginatedUsers.map((user) => (
+                <tr key={user.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={tdStyle}>
+                    <strong>{user.name}</strong>
+                  </td>
+
+                  <td style={tdStyle}>{user.email}</td>
+
+                  <td style={tdStyle}>
+                    <StatusBadge status={user.status} />
+                  </td>
+
+                  <td style={tdStyle}>{user.role}</td>
+
+                  <td style={tdStyle}>{user.team || "-"}</td>
+
+                  <td style={tdStyle}>
+                    {(user.skills || []).length} habilitation(s)
+                  </td>
+
+                  <td style={tdStyle}>
+                    <button
+                      style={styles.orangeButton}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      Modifier
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 20,
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            style={styles.darkButton}
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Page précédente
+          </button>
+
+          <strong>
+            Page {page} / {totalPages}
+          </strong>
+
+          <button
+            style={styles.darkButton}
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Page suivante →
+          </button>
+        </div>
+      </section>
+
+      {selectedUser && (
+        <section style={styles.panel}>
+          <h2>Modifier : {selectedUser.name}</h2>
+          <p>{selectedUser.email}</p>
+
+          <label>Nom</label>
+          <input
+            value={selectedUser.name || ""}
+            onChange={(e) =>
+              setSelectedUser({ ...selectedUser, name: e.target.value })
+            }
+            onBlur={() =>
+              updateUser(selectedUser.id, { name: selectedUser.name })
+            }
+            style={styles.input}
+          />
+
+          <label>Statut</label>
+          <select
+            value={selectedUser.status}
+            onChange={(e) =>
+              updateUser(selectedUser.id, { status: e.target.value })
+            }
+            style={styles.input}
+          >
+            {statuses.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+
+          <label>Rôle</label>
+          <select
+            value={selectedUser.role}
+            onChange={(e) =>
+              updateUser(selectedUser.id, { role: e.target.value })
+            }
+            style={styles.input}
+          >
+            {roles.map((role) => (
+              <option key={role}>{role}</option>
+            ))}
+          </select>
+
+          <label>Équipe</label>
+          <select
+            value={selectedUser.team || ""}
+            onChange={(e) =>
+              updateUser(selectedUser.id, {
+                team: e.target.value || null,
+              })
+            }
+            style={styles.input}
+          >
+            <option value="">Aucune</option>
+            {teams.map((team) => (
+              <option key={team}>{team}</option>
+            ))}
+          </select>
+
+          <h3>Habilitations</h3>
+
+          <div style={styles.checkboxGrid}>
+            {skills.map((skill) => (
+              <label key={skill} style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={(selectedUser.skills || []).includes(skill)}
+                  onChange={() => toggleSkill(selectedUser, skill)}
+                />
+                {skill}
+              </label>
+            ))}
+          </div>
+
+          <button
+            style={styles.darkButton}
+            onClick={() => setSelectedUser(null)}
+          >
+            Fermer
+          </button>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const color =
+    status === "approved"
+      ? "#27ae60"
+      : status === "rejected"
+      ? "#c0392b"
+      : "#f39c12";
+
+  const label =
+    status === "approved"
+      ? "Validé"
+      : status === "rejected"
+      ? "Refusé"
+      : "En attente";
+
+  return (
+    <span
+      style={{
+        background: color,
+        color: "white",
+        padding: "5px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: "bold",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+const thStyle = {
+  padding: "12px",
+  fontSize: 14,
+  color: "#555",
+};
+
+const tdStyle = {
+  padding: "12px",
+  verticalAlign: "middle",
+};
