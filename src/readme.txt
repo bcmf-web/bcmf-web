@@ -1,284 +1,266 @@
-# BCMF FLOW
+BCMF FLOW - README DEVELOPPEMENT
 
-## Présentation
+Version actuelle : v0.2.0-beta
 
-BCMF Flow est une application web destinée à la gestion des bénévoles et des missions du club BCMF.
+====================================================
+OBJECTIF DU PROJET
+==================
 
-L'application permet :
+BCMF Flow est une application web destinée au BCMF afin de gérer :
 
-* La création de comptes bénévoles
-* La gestion des rôles utilisateurs
-* La validation des nouveaux comptes
-* L'affectation d'habilitations
-* La création et le suivi des événements
-* La gestion des missions bénévoles
-* Le suivi de la couverture des événements
-
----
-
-# Architecture générale
-
-## Frontend
+* Les bénévoles
+* Les événements
+* Les missions
+* Les habilitations
+* Les partenaires du club
 
 Technologies utilisées :
 
 * React
 * Vite
-* JavaScript
-* Vercel (hébergement)
+* Supabase
+* Vercel
 
-Structure :
+====================================================
+AUTHENTIFICATION
+================
 
-```text
-src/
-├── components/
-│   └── Header.jsx
-│
-├── pages/
-│   ├── LoginPage.jsx
-│   ├── DashboardPage.jsx
-│   ├── EventPage.jsx
-│   └── AdminUsersPage.jsx
-│
-├── services/
-│   └── supabaseClient.js
-│
-├── styles/
-│   └── styles.js
-│
-├── data/
-│   └── InitialData.js
-│
-└── App.jsx
-```
+Connexion via Supabase Auth.
 
----
-
-# Backend
-
-Le backend repose sur Supabase :
-
-* Authentification
-* Base PostgreSQL
-* Gestion des droits
-* Hébergement des données
-
----
-
-# Gestion des utilisateurs
-
-## Authentification
-
-Les utilisateurs créent un compte via :
-
-* Email
-* Mot de passe
-
-Supabase gère :
+Fonctionnalités :
 
 * Connexion
 * Déconnexion
-* Confirmation email
-* Sessions
+* Création de compte
+* Validation des bénévoles par un administrateur
 
----
+Formulaire d'inscription :
 
-## Profils utilisateurs
+* Prénom
+* Nom
+* Téléphone
+* Email
+* Mot de passe
+* Confirmation mot de passe
 
-Les profils sont stockés dans la table :
+Contrôles :
 
-```text
-users
-```
+* Champs obligatoires
+* Vérification correspondance mot de passe
 
-Structure actuelle :
+====================================================
+TABLE USERS
+===========
 
-```text
-id
-email
-name
-role
-team
-status
-skills
-created_at
-```
+Table : users
 
----
+Colonnes principales :
 
-## Rôles
+* id
+* email
+* first_name
+* last_name
+* name
+* phone
+* role
+* team
+* status
+* skills
 
-### benevole
+Roles :
 
-Utilisateur standard.
+* admin
+* benevole
 
-Peut :
+Status :
 
-* Voir les événements
-* S'inscrire aux missions
+* pending
+* approved
+* rejected
 
-### referent
+====================================================
+GESTION DES UTILISATEURS
+========================
 
-Responsable d'équipe.
+Page : Admin Users
 
-Peut :
+Fonctionnalités :
 
-* Gérer les événements de son équipe
+* Liste des utilisateurs
+* Validation / refus
+* Attribution des rôles
+* Affectation des équipes
+* Gestion des habilitations
 
-### admin
+Interface :
 
-Administrateur du club.
+* Fenêtre popup "Modifier utilisateur"
+* Informations personnelles en lecture seule
+* Gestion club modifiable
 
-Peut :
+Informations affichées :
 
-* Gérer les utilisateurs
-* Modifier les rôles
-* Modifier les équipes
-* Modifier les habilitations
-* Valider les comptes
+* Nom
+* Email
+* Téléphone
+* Statut
+* Rôle
+* Équipe
+* Habilitations
 
----
+====================================================
+MON PROFIL
+==========
 
-## Statuts
+Accessible en cliquant sur le nom de l'utilisateur dans le bandeau supérieur.
 
-### pending
+Informations modifiables :
 
-Compte en attente de validation.
+* Prénom
+* Nom
+* Téléphone
 
-### approved
+Informations non modifiables :
 
-Compte validé.
+* Email
 
-### rejected
+Après enregistrement :
 
-Compte refusé.
+* Mise à jour Supabase
+* Relecture du profil
+* Rafraîchissement immédiat du bandeau
 
----
+====================================================
+GESTION DES EVENEMENTS
+======================
 
-# Gestion des événements
+Fonctionnalités existantes :
 
-Les événements sont stockés dans Supabase.
+* Liste des événements
+* Couverture des missions
+* Participation bénévole
+* Dashboard principal
 
-Chaque événement contient :
+A améliorer :
 
-```text
-Nom
-Date
-Equipe
-Description
-```
+* Gestion avancée des équipes
+* Calendrier
+* Export
 
----
+====================================================
+PARTENAIRES
+===========
 
-# Gestion des missions
+Table : partners
 
-Chaque événement possède plusieurs missions.
+Colonnes :
 
-Exemples :
+* id
+* name
+* category
+* description
+* website
+* phone
+* email
+* logo_url
+* active
 
-* Buvette
-* Table de marque
-* Accueil
-* Installation
-* Rangement
+Catégories :
 
-Une mission contient :
+* Commerces
+* Restauration
+* Industriels
+* BTP
+* Loisirs
 
-```text
-Nom
-Nombre de bénévoles nécessaires
-Habilitation requise
-```
+Fonctionnalités :
 
----
+* Consultation partenaires
+* Ajout partenaire
+* Activation / désactivation
+* Suppression partenaire
 
-# Administration
+Affichage :
 
-Page :
+* Onglets par catégorie
 
-```text
-Administration utilisateurs
-```
+====================================================
+INTERFACE
+=========
 
-Fonctions :
+Thème BCMF :
 
-* Recherche
-* Filtrage
-* Modification des rôles
-* Modification des équipes
-* Modification des habilitations
-* Validation des comptes
+* Vert
+* Blanc
+* Noir
 
----
+Améliorations réalisées :
 
-# Déploiement
+* Popup inscription moderne
+* Popup administration utilisateurs
+* Popup profil utilisateur
+* Navigation partenaires
 
-## Développement local
+====================================================
+DEPLOIEMENT
+===========
 
-```bash
-npm install
-npm run dev
-```
+GitHub
 
----
+Commande :
 
-## Build
+git add .
+git commit -m "message"
+git push
 
-```bash
-npm run build
-```
+Déploiement automatique :
 
----
+GitHub -> Vercel
 
-## Déploiement Vercel
+====================================================
+VERSIONS
+========
 
-Chaque push sur la branche :
+v0.1-beta
 
-```text
-main
-```
+* Base applicative
 
-déclenche automatiquement un déploiement sur Vercel.
+v0.1.1-beta
 
----
+* Refonte visuelle BCMF
 
-# Evolutions prévues
+v0.1.2-beta
 
-## Court terme
+* Nouveau processus d'inscription
 
-* Table Teams dans Supabase
-* Table Skills dans Supabase
-* Déconnexion utilisateur
-* Amélioration UX
+v0.2.0-beta
 
-## Moyen terme
+* Gestion partenaires
+* Profil utilisateur
+* Popup administration utilisateurs
+* Catégories partenaires
 
-* Modèles de missions
-* Statistiques bénévoles
-* Notifications email
-* Tableau de bord avancé
+====================================================
+ROADMAP
+=======
 
-## Long terme
+Priorité haute :
+
+* Upload logo partenaires
+* Teams dynamiques en base
+* Skills dynamiques en base
+* Responsive mobile
+
+Priorité moyenne :
+
+* Partenaires Premium
+* Recherche partenaire
+* Historique connexions
+* Gestion mot de passe
+
+Long terme :
 
 * Application mobile
-* QR Code présence
-* Gestion des formations
-* Gestion documentaire
-* Signature électronique
-
----
-
-# Historique
-
-## v0.1-beta
-
-Première version opérationnelle :
-
-* Authentification Supabase
-* Gestion utilisateurs
-* Gestion rôles
-* Gestion habilitations
-* Gestion événements
-* Gestion missions
-* Déploiement Vercel
-* Administration des utilisateurs
+* Notifications
+* Calendrier bénévoles
+* Statistiques bénévolat
