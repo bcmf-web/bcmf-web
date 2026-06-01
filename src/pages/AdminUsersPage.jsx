@@ -333,90 +333,108 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       </section>
 
       {selectedUser && (
-        <section style={styles.panel}>
-          <h2>Modifier : {selectedUser.name}</h2>
-          <p>{selectedUser.email}</p>
+		  <div style={modalStyles.overlay}>
+			<div style={modalStyles.modal}>
+			  <h2>Modifier utilisateur</h2>
 
-          <label>Nom</label>
-          <input
-            value={selectedUser.name || ""}
-            onChange={(e) =>
-              setSelectedUser({ ...selectedUser, name: e.target.value })
-            }
-            onBlur={() =>
-              updateUser(selectedUser.id, { name: selectedUser.name })
-            }
-            style={styles.input}
-          />
+				<div
+				  style={{
+					background: "#f8fafc",
+					border: "1px solid #e2e8f0",
+					borderRadius: 16,
+					padding: 16,
+					marginBottom: 20,
+				  }}
+				>
+				  <h3 style={{ marginTop: 0 }}>👤 Identité</h3>
 
-          <label>Statut</label>
-          <select
-            value={selectedUser.status}
-            onChange={(e) =>
-              updateUser(selectedUser.id, { status: e.target.value })
-            }
-            style={styles.input}
-          >
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
-            ))}
-          </select>
+				  <p>
+					<strong>Nom :</strong> {selectedUser.name || "-"}
+				  </p>
 
-          <label>Rôle</label>
-          <select
-            value={selectedUser.role}
-            onChange={(e) =>
-              updateUser(selectedUser.id, { role: e.target.value })
-            }
-            style={styles.input}
-          >
-            {roles.map((role) => (
-              <option key={role}>{role}</option>
-            ))}
-          </select>
+				  <p>
+					<strong>Email :</strong> {selectedUser.email || "-"}
+				  </p>
 
-          <label>Équipe</label>
-          <select
-            value={selectedUser.team || ""}
-            onChange={(e) =>
-              updateUser(selectedUser.id, {
-                team: e.target.value || null,
-              })
-            }
-            style={styles.input}
-          >
-            <option value="">Aucune</option>
-            {teams.map((team) => (
-              <option key={team}>{team}</option>
-            ))}
-          </select>
+				  <p>
+					<strong>Téléphone :</strong> {selectedUser.phone || "-"}
+				  </p>
+				</div>
 
-          <h3>Habilitations</h3>
+				<h3>⚙️ Gestion club</h3>
 
-          <div style={styles.checkboxGrid}>
-            {skills.map((skill) => (
-              <label key={skill} style={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={(selectedUser.skills || []).includes(skill)}
-                  onChange={() => toggleSkill(selectedUser, skill)}
-                />
-                {skill}
-              </label>
-            ))}
+			  <label>Statut</label>
+			  <select
+				value={selectedUser.status}
+				onChange={(e) =>
+				  updateUser(selectedUser.id, { status: e.target.value })
+				}
+				style={styles.input}
+			  >
+				{statuses.map((status) => (
+				  <option key={status}>{status}</option>
+				))}
+			  </select>
+
+			  <label>Rôle</label>
+			  <select
+				value={selectedUser.role}
+				onChange={(e) =>
+				  updateUser(selectedUser.id, { role: e.target.value })
+				}
+				style={styles.input}
+			  >
+				{roles.map((role) => (
+				  <option key={role}>{role}</option>
+				))}
+			  </select>
+
+			  <label>Équipe</label>
+			  <select
+				value={selectedUser.team || ""}
+				onChange={(e) =>
+				  updateUser(selectedUser.id, {
+					team: e.target.value || null,
+				  })
+				}
+				style={styles.input}
+			  >
+				<option value="">Aucune</option>
+				{teams.map((team) => (
+				  <option key={team}>{team}</option>
+				))}
+			  </select>
+
+			  <h3>Habilitations</h3>
+
+			  <div style={styles.checkboxGrid}>
+				{skills.map((skill) => (
+				  <label key={skill} style={styles.checkboxLabel}>
+					<input
+					  type="checkbox"
+					  checked={(selectedUser.skills || []).includes(skill)}
+					  onChange={() => toggleSkill(selectedUser, skill)}
+					/>
+					{skill}
+				  </label>
+				))}
+			  </div>
+
+			  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+				<button
+				  style={styles.darkButton}
+				  onClick={() => setSelectedUser(null)}
+				>
+				  Fermer
+        </button>
+			</div>
           </div>
-
-          <button
-            style={styles.darkButton}
-            onClick={() => setSelectedUser(null)}
-          >
-            Fermer
-          </button>
-        </section>
+        </div>
       )}
     </div>
   );
 }
+
 
 function StatusBadge({ status }) {
   const color =
@@ -458,4 +476,28 @@ const thStyle = {
 const tdStyle = {
   padding: "12px",
   verticalAlign: "middle",
+};
+
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    zIndex: 999,
+  },
+
+  modal: {
+    width: "100%",
+    maxWidth: 520,
+    maxHeight: "90vh",
+    overflowY: "auto",
+    background: "white",
+    borderRadius: 24,
+    padding: 30,
+    boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+  },
 };

@@ -1,7 +1,7 @@
 import { styles } from "../styles/styles.js";
 import { supabase } from "../services/supabaseClient.js";
 
-export default function Header({ currentUser }) {
+export default function Header({ currentUser, onProfileClick }) {
   return (
     <>
       <header style={styles.header}>
@@ -14,7 +14,13 @@ export default function Header({ currentUser }) {
           </div>
         </div>
 
-        <div style={styles.userPill}>
+        <div
+		  style={{
+			...styles.userPill,
+			cursor: "pointer",
+		  }}
+		  onClick={onProfileClick}
+		>
           <strong>{currentUser.name}</strong>
           <br />
           <small>

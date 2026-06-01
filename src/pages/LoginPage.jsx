@@ -65,6 +65,8 @@ export default function LoginPage({ onLogin }) {
           id: authUser.id,
           email: email,
           name: `${firstName} ${lastName}`,
+		  first_name: firstName,
+		  last_name: lastName,
 		  phone: phone,
           role: "benevole",
           team: null,

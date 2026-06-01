@@ -17,7 +17,13 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [page, setPage] = useState("dashboard");
-  
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+	  first_name: "",
+	  last_name: "",
+	  phone: "",
+	});
+	  
  useEffect(() => {
   supabase.auth.getSession().then(({ data }) => {
     setSession(data.session);
@@ -52,6 +58,16 @@ useEffect(() => {
 
   loadProfile();
 }, [session]);
+
+useEffect(() => {
+  if (profile) {
+    setProfileForm({
+      first_name: profile.first_name || "",
+      last_name: profile.last_name || "",
+      phone: profile.phone || "",
+    });
+  }
+}, [profile]);
   
  useEffect(() => {
   async function loadEvents() {
@@ -173,6 +189,38 @@ useEffect(() => {
 		  };
 		})
 	  );
+	}
+
+	async function updateMyProfile() {
+	  const { error } = await supabase
+		.from("users")
+		.update({
+		  first_name: profileForm.first_name,
+		  last_name: profileForm.last_name,
+		  name: `${profileForm.first_name} ${profileForm.last_name}`,
+		  phone: profileForm.phone,
+		})
+		.eq("id", currentUser.id);
+
+	  if (error) {
+		alert(error.message);
+		return;
+	  }
+
+	  const { data, error: reloadError } = await supabase
+		.from("users")
+		.select("*")
+		.eq("id", currentUser.id)
+		.single();
+
+	  if (reloadError) {
+		alert(reloadError.message);
+		return;
+	  }
+
+	  setProfile(data);
+	  setShowProfile(false);
+	  alert("Profil mis à jour");
 	}
 
   async function addMissionToEvent(eventId, newMission) {
@@ -417,11 +465,81 @@ const visibleEvents =
     ? events.filter((e) => e.team === currentUser.team)
     : events;
 
+const profileModal = showProfile && (
+  <div style={modalStyles.overlay}>
+    <div style={modalStyles.modal}>
+      <h2 style={{ marginTop: 0, color: "#14532d" }}>Mon profil</h2>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        <div>
+          <label>Prénom</label>
+          <input
+            value={profileForm.first_name}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                first_name: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+        </div>
+
+        <div>
+          <label>Nom</label>
+          <input
+            value={profileForm.last_name}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                last_name: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+        </div>
+
+        <div>
+          <label>Email</label>
+          <input value={currentUser.email} disabled style={styles.input} />
+        </div>
+
+        <div>
+          <label>Téléphone</label>
+          <input
+            value={profileForm.phone}
+            onChange={(e) =>
+              setProfileForm({
+                ...profileForm,
+                phone: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+        <button style={styles.orangeButton} onClick={updateMyProfile}>
+          Enregistrer
+        </button>
+
+        <button style={styles.darkButton} onClick={() => setShowProfile(false)}>
+          Annuler
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 if (page === "admin-users") {
   return (
     <div style={styles.page}>
-      <Header currentUser={currentUser} />
+      <Header
+		  currentUser={currentUser}
+		  onProfileClick={() => setShowProfile(true)}
+		/>
+		 {profileModal}
 
       <AdminUsersPage
         currentUser={currentUser}
@@ -433,7 +551,12 @@ if (page === "admin-users") {
   if (page === "partners") {
 	  return (
 		<div style={styles.page}>
-		  <Header currentUser={currentUser} />
+		  <Header
+			  currentUser={currentUser}
+			  onProfileClick={() => setShowProfile(true)}
+			/>
+			
+			 {profileModal}
 
 		  <PartnersPage
 			currentUser={currentUser}
@@ -445,7 +568,12 @@ if (page === "admin-users") {
   if (selectedEvent) {
     return (
       <div style={styles.page}>
-        <Header currentUser={currentUser} />
+        <Header
+		  currentUser={currentUser}
+		  onProfileClick={() => setShowProfile(true)}
+		/>
+		
+		 {profileModal}
 
         <EventPage
           event={selectedEvent}
@@ -469,7 +597,12 @@ if (page === "admin-users") {
 
 return (
   <div style={styles.page}>
-    <Header currentUser={currentUser} />
+    <Header
+	  currentUser={currentUser}
+	  onProfileClick={() => setShowProfile(true)}
+	/>
+	
+	 {profileModal}
 	
 	<div
       style={{
@@ -514,3 +647,24 @@ return (
   </div>
 );
 }
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    zIndex: 999,
+  },
+
+  modal: {
+    width: "100%",
+    maxWidth: 460,
+    background: "white",
+    borderRadius: 24,
+    padding: 30,
+    boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+  },
+};

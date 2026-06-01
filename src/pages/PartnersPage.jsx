@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { styles } from "../styles/styles.js";
 
-const categories = ["Commerces", "Restauration", "Industriels", "BTP"];
+const categories = ["Commerces", "Restauration", "Industriels","loisirs","BTP"];
+
 
 export default function PartnersPage({ currentUser, onBack }) {
   const [partners, setPartners] = useState([]);
   const [message, setMessage] = useState("");
+  const [activeCategory, setActiveCategory] = useState("Commerces");
 
   const [newPartner, setNewPartner] = useState({
     name: "",
@@ -231,76 +233,89 @@ export default function PartnersPage({ currentUser, onBack }) {
         </section>
       )}
 
-      {grouped.map((group) => (
-        <section key={group.category} style={styles.panel}>
-          <h2>{group.category}</h2>
+      <section style={styles.panel}>
+  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+    {categories.map((category) => (
+      <button
+        key={category}
+        style={
+          activeCategory === category
+            ? styles.orangeButton
+            : styles.darkButton
+        }
+        onClick={() => setActiveCategory(category)}
+      >
+        {category}
+      </button>
+    ))}
+  </div>
+</section>
 
-          {group.items.length === 0 && (
-            <p>Aucun partenaire dans cette catégorie pour le moment.</p>
-          )}
+		<section style={styles.panel}>
+		  <h2>{activeCategory}</h2>
 
-          <div style={styles.grid}>
-            {group.items.map((partner) => (
-              <div key={partner.id} style={styles.card}>
-                {!partner.active && isAdmin && (
-                  <p style={{ color: "#c0392b", fontWeight: "bold" }}>
-                    Inactif
-                  </p>
-                )}
+		  {visiblePartners.filter((p) => p.category === activeCategory).length === 0 && (
+			<p>Aucun partenaire dans cette catégorie pour le moment.</p>
+		  )}
 
-                {partner.logo_url && (
-                  <img
-                    src={partner.logo_url}
-                    alt={partner.name}
-                    style={{
-                      width: "100%",
-                      height: 120,
-                      objectFit: "contain",
-                      marginBottom: 15,
-                    }}
-                  />
-                )}
+		  <div style={styles.grid}>
+			{visiblePartners
+			  .filter((p) => p.category === activeCategory)
+			  .map((partner) => (
+				<div key={partner.id} style={styles.card}>
+				  {partner.logo_url && (
+					<img
+					  src={partner.logo_url}
+					  alt={partner.name}
+					  style={{
+						width: "100%",
+						height: 120,
+						objectFit: "contain",
+						marginBottom: 15,
+					  }}
+					/>
+				  )}
 
-                <h3>{partner.name}</h3>
+				  <h3>{partner.name}</h3>
 
-                {partner.description && <p>{partner.description}</p>}
+				  {partner.description && <p>{partner.description}</p>}
 
-                {partner.website && (
-                  <a
-                    href={partner.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={styles.link}
-                  >
-                    Voir le site →
-                  </a>
-                )}
+				  {partner.website && (
+					<a
+					  href={partner.website}
+					  target="_blank"
+					  rel="noreferrer"
+					  style={styles.link}
+					>
+					  Voir le site →
+					</a>
+				  )}
 
-                {partner.phone && <p>📞 {partner.phone}</p>}
-                {partner.email && <p>✉️ {partner.email}</p>}
+				  {partner.phone && <p>📞 {partner.phone}</p>}
+				  {partner.email && <p>✉️ {partner.email}</p>}
 
-                {isAdmin && (
-                  <div style={{ marginTop: 15, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button
-                      style={styles.darkButton}
-                      onClick={() => toggleActive(partner)}
-                    >
-                      {partner.active ? "Désactiver" : "Activer"}
-                    </button>
+				  {isAdmin && (
+					<div style={{ marginTop: 15, display: "flex", gap: 10, flexWrap: "wrap" }}>
+					  <button
+						style={styles.darkButton}
+						onClick={() => toggleActive(partner)}
+					  >
+						{partner.active ? "Désactiver" : "Activer"}
+					  </button>
 
-                    <button
-                      style={styles.redButton}
-                      onClick={() => deletePartner(partner.id)}
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+					  <button
+						style={styles.redButton}
+						onClick={() => deletePartner(partner.id)}
+					  >
+						Supprimer
+					  </button>
+					</div>
+				  )}
+				</div>
+			  ))}
+		  </div>
+		</section>
+     
     </div>
   );
 }
