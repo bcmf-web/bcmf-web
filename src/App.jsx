@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import EventPage from "./pages/EventPage.jsx";
 import { styles } from "./styles/styles.js";
 import LoginPage from "./pages/LoginPage.jsx";
+import PartnersPage from "./pages/PartnersPage.jsx";
 
 
 export default function App() {
@@ -429,7 +430,18 @@ if (page === "admin-users") {
     </div>
   );
 }
+  if (page === "partners") {
+	  return (
+		<div style={styles.page}>
+		  <Header currentUser={currentUser} />
 
+		  <PartnersPage
+			currentUser={currentUser}
+			onBack={() => setPage("dashboard")}
+		  />
+		</div>
+	  );
+	}
   if (selectedEvent) {
     return (
       <div style={styles.page}>
@@ -476,6 +488,12 @@ return (
       Cette application est actuellement en phase de test.
       Merci de remonter toute anomalie ou suggestion d'amélioration.
     </div>
+	<button
+	  style={styles.orangeButton}
+	  onClick={() => setPage("partners")}
+	>
+	  Nos partenaires
+	</button>
 	
     {currentUser.role === "admin" && (
       <button
