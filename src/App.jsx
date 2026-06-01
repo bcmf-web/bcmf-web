@@ -492,7 +492,7 @@ return (
 	  style={styles.orangeButton}
 	  onClick={() => setPage("partners")}
 	>
-	  Pensez à nos partenaires
+	  Un Besoin une envie ? Pensez à nos partenaires
 	</button>
 	
     {currentUser.role === "admin" && (
