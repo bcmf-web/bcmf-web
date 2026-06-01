@@ -4,6 +4,11 @@ import { supabase } from "../services/supabaseClient.js";
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showSignup, setShowSignup] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   async function login() {
     const { error } = await supabase.auth.signInWithPassword({
@@ -20,6 +25,28 @@ export default function LoginPage({ onLogin }) {
   }
 
   async function signup() {
+	  
+	if (
+	  !firstName.trim() ||
+	  !lastName.trim() ||
+	  !phone.trim() ||
+	  !email.trim() ||
+	  !password.trim() ||
+	  !confirmPassword.trim()
+	) {
+	  alert("Merci de compléter tous les champs.");
+	  return;
+	}
+	  
+	if (password !== confirmPassword) {
+	  alert("Les mots de passe ne correspondent pas");
+	  return;
+	}
+
+	if (!phone || phone.length < 10) {
+	  alert("Numéro de téléphone invalide");
+	  return;
+	}
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -37,7 +64,8 @@ export default function LoginPage({ onLogin }) {
         {
           id: authUser.id,
           email: email,
-          name: email.split("@")[0],
+          name: `${firstName} ${lastName}`,
+		  phone: phone,
           role: "benevole",
           team: null,
           status: "pending",
@@ -50,8 +78,16 @@ export default function LoginPage({ onLogin }) {
         return;
       }
     }
-
-    alert("Compte créé. En attente de validation par le club.");
+    setShowSignup(false);
+	setFirstName("");
+	setLastName("");
+	setPhone("");
+	setEmail("");
+	setPassword("");
+	setConfirmPassword("");
+	
+    alert("Votre compte sera créé aprés validation par le club.");
+	
   }
 
   return (
@@ -88,15 +124,80 @@ export default function LoginPage({ onLogin }) {
             Se connecter
           </button>
 
-          <button onClick={signup} style={loginStyles.secondaryButton}>
-            Créer un compte
-          </button>
+          <button
+			  onClick={() => setShowSignup(true)}
+			  style={loginStyles.secondaryButton}
+		  >
+			  Créer un compte
+		  </button>
         </div>
 
         <p style={loginStyles.footerText}>
           Votre compte devra être validé par un administrateur du club.
         </p>
       </div>
+	  {showSignup && (
+		  <div style={loginStyles.modalOverlay}>
+			<div style={loginStyles.modal}>
+			  <h2 style={loginStyles.modalTitle}>Créer un compte bénévole</h2>
+
+			  <label style={loginStyles.label}>Nom</label>
+			  <input
+				value={lastName}
+				onChange={(e) => setLastName(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <label style={loginStyles.label}>Prénom</label>
+			  <input
+				value={firstName}
+				onChange={(e) => setFirstName(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <label style={loginStyles.label}>Email</label>
+			  <input
+				value={email}
+				onChange={(e) => setEmail(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <label style={loginStyles.label}>Téléphone</label>
+			  <input
+				value={phone}
+				onChange={(e) => setPhone(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <label style={loginStyles.label}>Mot de passe</label>
+			  <input
+				type="password"
+				value={password}
+				onChange={(e) => setPassword(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <label style={loginStyles.label}>Confirmer le mot de passe</label>
+			  <input
+				type="password"
+				value={confirmPassword}
+				onChange={(e) => setConfirmPassword(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <button onClick={signup} style={loginStyles.primaryButton}>
+				Créer mon compte
+			  </button>
+
+			  <button
+				onClick={() => setShowSignup(false)}
+				style={loginStyles.secondaryButton}
+			  >
+				Annuler
+			  </button>
+			</div>
+		  </div>
+		)}
     </div>
   );
 }
@@ -206,4 +307,32 @@ const loginStyles = {
     color: "#64748b",
     fontSize: 13,
   },
+  
+  modalOverlay: {
+	  position: "fixed",
+	  inset: 0,
+	  background: "rgba(0,0,0,.55)",
+	  display: "flex",
+	  alignItems: "center",
+	  justifyContent: "center",
+	  padding: 20,
+	  zIndex: 999,
+	},
+
+	modal: {
+	  width: "100%",
+	  maxWidth: 460,
+	  maxHeight: "90vh",
+	  overflowY: "auto",
+	  background: "white",
+	  borderRadius: 24,
+	  padding: 30,
+	  boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+	},
+
+	modalTitle: {
+	  marginTop: 0,
+	  color: "#14532d",
+	},
+  
 };
