@@ -189,4 +189,22 @@ export const styles = {
     cursor: "pointer",
     fontWeight: "bold",
   },
+  
+  teamBadge: {
+  display: "inline-block",
+  background: "#7c3aed",
+  color: "white",
+  padding: "4px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: "bold",
+  },
+  
+  badgesContainer: {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 6,
+  marginTop: 8,
+  },
+
 };

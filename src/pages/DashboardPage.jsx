@@ -12,14 +12,15 @@ export default function DashboardPage({
   onOpenEvent,
   onAddEvent,
 }) {
-  const [newEvent, setNewEvent] = useState({
-    title: "",
-    team: currentUser.team || "U11",
-    category: "Match Amateur",
-    date: "",
-    time: "",
-    place: "",
-  });
+	const [newEvent, setNewEvent] = useState({
+	  title: "",
+	  team: "",
+	  teams: [],
+	  category: "Match Amateur",
+	  date: "",
+	  time: "",
+	  place: "",
+	});
 
   const canCreateEvent =
     currentUser.role === "admin" || currentUser.role === "referent";
@@ -33,14 +34,15 @@ export default function DashboardPage({
   function submitEvent() {
     onAddEvent(newEvent);
 
-    setNewEvent({
-      title: "",
-      team: currentUser.team || "U11",
-      category: "Match Amateur",
-      date: "",
-      time: "",
-      place: "",
-    });
+	setNewEvent({
+	  title: "",
+	  team: "",
+	  teams: [],
+	  category: "Match Amateur",
+	  date: "",
+	  time: "",
+	  place: "",
+	});
   }
   
 	async function loadTeams() {
@@ -80,25 +82,34 @@ export default function DashboardPage({
             style={styles.input}
           />
 
-			<select
-			  value={newEvent.team}
-			  onChange={(e) =>
-				setNewEvent({ ...newEvent, team: e.target.value })
-			  }
-			  style={styles.input}
-			  disabled={currentUser.role === "referent"}
-			>
-			  <option value="">Choisir une équipe</option>
+			<label>Équipes concernées</label>
 
+			<div style={styles.checkboxGrid}>
 			  {teams.map((team) => (
-				<option
-				  key={team.id}
-				  value={team.name}
-				>
+				<label key={team.id} style={styles.checkboxLabel}>
+				  <input
+					type="checkbox"
+					checked={newEvent.teams.some((t) => t.id === team.id)}
+					onChange={() => {
+					  const alreadySelected = newEvent.teams.some(
+						(t) => t.id === team.id
+					  );
+
+					  const updatedTeams = alreadySelected
+						? newEvent.teams.filter((t) => t.id !== team.id)
+						: [...newEvent.teams, team];
+
+					  setNewEvent({
+						...newEvent,
+						teams: updatedTeams,
+						team: updatedTeams[0]?.name || "",
+					  });
+					}}
+				  />
 				  {team.name}
-				</option>
+				</label>
 			  ))}
-			</select>
+			</div>			
 
           <select
             value={newEvent.category}

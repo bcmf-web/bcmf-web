@@ -70,44 +70,54 @@ useEffect(() => {
 }, [profile]);
   
  useEffect(() => {
-  async function loadEvents() {
-    const { data, error } = await supabase
-      .from("events")
-      .select(`
-        *,
-        missions (
-          id,
-          name,
-          need,
-          required_skill,
-          assignments (
-            id,
-            user_name
-          )
-        )
-      `);
+	 
+	async function loadEvents() {
+	  const { data, error } = await supabase
+		.from("events")
+		.select(`
+		  *,
+		  event_teams (
+			teams (
+			  id,
+			  name
+			)
+		  ),
+		  missions (
+			id,
+			name,
+			need,
+			required_skill,
+			assignments (
+			  id,
+			  user_name
+			)
+		  )
+		`);
 
-    console.log("SUPABASE DATA:", data);
-    console.log("SUPABASE ERROR:", error);
+	  console.log("SUPABASE DATA:", data);
+	  console.log("SUPABASE ERROR:", error);
 
-    if (error) {
-      alert("Erreur Supabase : " + error.message);
-      return;
-    }
+	  if (error) {
+		alert("Erreur Supabase : " + error.message);
+		return;
+	  }
 
-    const formatted = data.map((event) => ({
-      ...event,
-      missions: event.missions.map((mission) => ({
-        id: mission.id,
-        name: mission.name,
-        need: mission.need,
-        requiredSkill: mission.required_skill,
-        assigned: mission.assignments.map((a) => a.user_name),
-      })),
-    }));
+	  const formatted = data.map((event) => ({
+		...event,
 
-    setEvents(formatted);
-  }
+		teamsList: event.event_teams?.map((et) => et.teams) || [],
+
+		missions: event.missions.map((mission) => ({
+		  id: mission.id,
+		  name: mission.name,
+		  need: mission.need,
+		  requiredSkill: mission.required_skill,
+		  assigned: mission.assignments.map((a) => a.user_name),
+		})),
+	  }));
+
+	  setEvents(formatted);
+	}
 
   loadEvents();
  }, []);
@@ -131,14 +141,20 @@ useEffect(() => {
     return total === 0 ? 0 : Math.round((assigned / total) * 100);
   }
 
-  async function addEvent(newEvent) {
+	async function addEvent(newEvent) {
+	  if (!newEvent.teams || newEvent.teams.length === 0) {
+		alert("Merci de sélectionner au moins une équipe.");
+		return;
+	  }
+
+	  const firstTeam = newEvent.teams[0];
 
 	  const { data, error } = await supabase
 		.from("events")
 		.insert([
 		  {
 			title: newEvent.title,
-			team: newEvent.team,
+			team: firstTeam.name,
 			category: newEvent.category,
 			date: newEvent.date,
 			time: newEvent.time,
@@ -154,12 +170,27 @@ useEffect(() => {
 
 	  const createdEvent = {
 		...data[0],
+		teamsList: newEvent.teams,
 		missions: [],
 	  };
 
+	  const eventTeams = newEvent.teams.map((team) => ({
+		event_id: data[0].id,
+		team_id: team.id,
+	  }));
+
+	  const { error: teamsError } = await supabase
+		.from("event_teams")
+		.insert(eventTeams);
+
+	  if (teamsError) {
+		alert(teamsError.message);
+		return;
+	  }
+
 	  setEvents((prev) => [...prev, createdEvent]);
 	}
-  
+	
 	async function updateEvent(eventId, updatedEvent) {
 	  const { error } = await supabase
 		.from("events")
