@@ -19,6 +19,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
   const [page, setPage] = useState(1);
   const [teams, setTeams] = useState([]);
   const [skills, setSkills] = useState([]);
+  const [showTeams, setShowTeams] = useState(false);
 
   const pageSize = 50;
 
@@ -92,6 +93,43 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 	  if (!error) {
 		setSkills(data || []);
 	  }
+	}
+	
+	async function toggleTeam(user, teamName) {
+	  const currentTeams = user.team
+		? user.team.split(",")
+		: [];
+
+	  let updatedTeams;
+
+	  if (currentTeams.includes(teamName)) {
+		updatedTeams = currentTeams.filter(
+		  (t) => t !== teamName
+		);
+	  } else {
+		updatedTeams = [...currentTeams, teamName];
+	  }
+
+	  const teamString = updatedTeams.join(",");
+
+	  const { error } = await supabase
+		.from("users")
+		.update({
+		  team: teamString,
+		})
+		.eq("id", user.id);
+
+	  if (error) {
+		alert(error.message);
+		return;
+	  }
+
+	  setSelectedUser({
+		...user,
+		team: teamString,
+	  });
+
+	  loadUsers();
 	}
 
   function toggleSkill(user, skill) {
@@ -418,26 +456,64 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 				))}
 			  </select>
 
-			  <label>Équipe</label>
-			  <select
-				value={selectedUser.team || ""}
-				onChange={(e) =>
-				  updateUser(selectedUser.id, {
-					team: e.target.value || null,
-				  })
-				}
-				style={styles.input}
-			  >
-				<option value="">Aucune</option>
-				{teams.map((team) => (
-				  <option
-					key={team.id}
-					value={team.name}
+			  <label>Équipes</label>
+				<div style={{ position: "relative" }}>
+				  <button
+					type="button"
+					style={{
+					  ...styles.input,
+					  width: "100%",
+					  textAlign: "left",
+					  cursor: "pointer",
+					}}
+					onClick={() => setShowTeams(!showTeams)}
 				  >
-					{team.name}
-				  </option>
-				))}
-			  </select>
+					Sélectionner les équipes ▼
+				  </button>
+
+				  {showTeams && (
+					<div
+					  style={{
+						position: "absolute",
+						top: "100%",
+						left: 0,
+						right: 0,
+						background: "white",
+						border: "1px solid #ddd",
+						borderRadius: 12,
+						padding: 10,
+						maxHeight: 250,
+						overflowY: "auto",
+						zIndex: 9999,
+						boxShadow: "0 4px 12px rgba(0,0,0,.15)",
+					  }}
+					>
+					  {teams.map((team) => (
+						<label
+						  key={team.id}
+						  style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							marginBottom: 8,
+						  }}
+						>
+						  <input
+							type="checkbox"
+							checked={
+							  (selectedUser.team || "")
+								.split(",")
+								.includes(team.name)
+							}
+							onChange={() => toggleTeam(selectedUser, team.name)}
+						  />
+
+						  {team.name}
+						</label>
+					  ))}
+					</div>
+				  )}
+				</div>
 
 			  <h3>Habilitations</h3>
 
@@ -524,14 +600,15 @@ const modalStyles = {
     zIndex: 999,
   },
 
-  modal: {
-    width: "100%",
-    maxWidth: 520,
-    maxHeight: "90vh",
-    overflowY: "auto",
-    background: "white",
-    borderRadius: 24,
-    padding: 30,
-    boxShadow: "0 20px 60px rgba(0,0,0,.35)",
-  },
+ modal: {
+  width: "95%",
+  maxWidth: 1000,
+  minHeight: "80vh",
+  maxHeight: "95vh",
+  overflowY: "auto",
+  background: "white",
+  borderRadius: 24,
+  padding: 30,
+  boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+}
 };
