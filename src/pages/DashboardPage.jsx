@@ -1,7 +1,9 @@
-import { useState } from "react";
+
 import Kpi from "../components/Kpi.jsx";
 import EventCard from "../components/EventCard.jsx";
 import { styles } from "../styles/styles.js";
+import { useEffect, useState } from "react";
+import { supabase } from "../services/supabaseClient.js";
 
 export default function DashboardPage({
   currentUser,
@@ -21,6 +23,12 @@ export default function DashboardPage({
 
   const canCreateEvent =
     currentUser.role === "admin" || currentUser.role === "referent";
+	
+  const [teams, setTeams] = useState([]);
+  
+    useEffect(() => {
+	  loadTeams();
+	}, []);
 
   function submitEvent() {
     onAddEvent(newEvent);
@@ -34,6 +42,18 @@ export default function DashboardPage({
       place: "",
     });
   }
+  
+	async function loadTeams() {
+	  const { data, error } = await supabase
+		.from("teams")
+		.select("*")
+		.eq("active", true)
+		.order("name");
+
+	  if (!error) {
+		setTeams(data || []);
+	  }
+	}  
 
   return (
     <>
@@ -60,22 +80,25 @@ export default function DashboardPage({
             style={styles.input}
           />
 
-          <select
-            value={newEvent.team}
-            onChange={(e) =>
-              setNewEvent({ ...newEvent, team: e.target.value })
-            }
-            style={styles.input}
-            disabled={currentUser.role === "referent"}
-          >
-            <option value="U9">U9</option>
-            <option value="U11">U11</option>
-            <option value="U13">U13</option>
-            <option value="U15">U15</option>
-            <option value="U18">U18</option>
-            <option value="Seniors">Seniors</option>
-            <option value="Club">Club</option>
-          </select>
+			<select
+			  value={newEvent.team}
+			  onChange={(e) =>
+				setNewEvent({ ...newEvent, team: e.target.value })
+			  }
+			  style={styles.input}
+			  disabled={currentUser.role === "referent"}
+			>
+			  <option value="">Choisir une équipe</option>
+
+			  {teams.map((team) => (
+				<option
+				  key={team.id}
+				  value={team.name}
+				>
+				  {team.name}
+				</option>
+			  ))}
+			</select>
 
           <select
             value={newEvent.category}

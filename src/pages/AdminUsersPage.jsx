@@ -32,7 +32,17 @@ export default function AdminUsersPage({ currentUser, onBack }) {
   async function loadUsers() {
     const { data, error } = await supabase
       .from("users")
-      .select("*")
+	  .select(`
+	    *,
+	    user_teams (
+		  team_id,
+		  teams (
+		    id,
+		    name,
+		    category
+		  )
+	    )
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -40,7 +50,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       return;
     }
 
-    setUsers(data || []);
+    const formattedUsers = (data || []).map((user) => ({
+	  ...user,
+	  teamsList: user.user_teams?.map((ut) => ut.teams) || [],
+	}));
+
+	setUsers(formattedUsers);
   }
 
   async function updateUser(userId, updates) {
@@ -95,43 +110,67 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 	  }
 	}
 	
-	async function toggleTeam(user, teamName) {
-	  const currentTeams = user.team
-		? user.team.split(",")
-		: [];
+	async function toggleTeam(user, team) {
+	  const currentTeams = user.teamsList || [];
+	  const alreadyLinked = currentTeams.some((t) => t.id === team.id);
 
-	  let updatedTeams;
+	  if (alreadyLinked) {
+		const { error } = await supabase
+		  .from("user_teams")
+		  .delete()
+		  .eq("user_id", user.id)
+		  .eq("team_id", team.id);
 
-	  if (currentTeams.includes(teamName)) {
-		updatedTeams = currentTeams.filter(
-		  (t) => t !== teamName
+		if (error) {
+		  alert(error.message);
+		  return;
+		}
+
+		const updatedTeams = currentTeams.filter((t) => t.id !== team.id);
+
+		setSelectedUser({
+		  ...user,
+		  teamsList: updatedTeams,
+		});
+
+		setUsers((prev) =>
+		  prev.map((u) =>
+			u.id === user.id ? { ...u, teamsList: updatedTeams } : u
+		  )
 		);
 	  } else {
-		updatedTeams = [...currentTeams, teamName];
+		const { error } = await supabase.from("user_teams").insert([
+		  {
+			user_id: user.id,
+			team_id: team.id,
+		  },
+		]);
+
+		if (error) {
+		  alert(error.message);
+		  return;
+		}
+
+		const updatedTeams = [...currentTeams, team];
+
+		setSelectedUser({
+		  ...user,
+		  teamsList: updatedTeams,
+		});
+
+		setUsers((prev) =>
+		  prev.map((u) =>
+			u.id === user.id ? { ...u, teamsList: updatedTeams } : u
+		  )
+		);
 	  }
 
-	  const teamString = updatedTeams.join(",");
+	  setMessage("✅ Équipes mises à jour");
 
-	  const { error } = await supabase
-		.from("users")
-		.update({
-		  team: teamString,
-		})
-		.eq("id", user.id);
-
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
-
-	  setSelectedUser({
-		...user,
-		team: teamString,
-	  });
-
-	  loadUsers();
+	  setTimeout(() => {
+		setMessage("");
+	  }, 2000);
 	}
-
   function toggleSkill(user, skill) {
     const currentSkills = user.skills || [];
 
@@ -522,8 +561,8 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 				  <label key={skill.id} style={styles.checkboxLabel}>
 					<input
 					  type="checkbox"
-					  checked={(selectedUser.skills || []).includes(skill.name)}
-					  onChange={() => toggleSkill(selectedUser, skill.name)}
+						checked={(selectedUser.teamsList || []).some((t) => t.id === team.id)}
+						onChange={() => toggleTeam(selectedUser, team)}
 					/>
 					{skill.name}
 				  </label>
@@ -543,8 +582,8 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       )}
     </div>
   );
-}
 
+ }
 
 function StatusBadge({ status }) {
   const color =
