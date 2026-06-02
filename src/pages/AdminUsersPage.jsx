@@ -386,7 +386,19 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
                   <td style={tdStyle}>{user.role}</td>
 
-                  <td style={tdStyle}>{user.team || "-"}</td>
+					<td style={tdStyle}>
+					  <div style={styles.badgesContainer}>
+						{user.teamsList?.length > 0 ? (
+						  user.teamsList.map((team) => (
+							<span key={team.id} style={styles.teamBadge}>
+							  {team.name}
+							</span>
+						  ))
+						) : (
+						  "-"
+						)}
+					  </div>
+					</td>
 
                   <td style={tdStyle}>
                     {(user.skills || []).length} habilitation(s)
@@ -527,29 +539,27 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 						boxShadow: "0 4px 12px rgba(0,0,0,.15)",
 					  }}
 					>
-					  {teams.map((team) => (
-						<label
-						  key={team.id}
-						  style={{
-							display: "flex",
-							alignItems: "center",
-							gap: 8,
-							marginBottom: 8,
-						  }}
-						>
-						  <input
-							type="checkbox"
-							checked={
-							  (selectedUser.team || "")
-								.split(",")
-								.includes(team.name)
-							}
-							onChange={() => toggleTeam(selectedUser, team.name)}
-						  />
+					{teams.map((team) => (
+					  <label
+						key={team.id}
+						style={{
+						  display: "flex",
+						  alignItems: "center",
+						  gap: 8,
+						  marginBottom: 8,
+						}}
+					  >
+						<input
+						  type="checkbox"
+						  checked={(selectedUser.teamsList || []).some(
+							(selectedTeam) => selectedTeam.id === team.id
+						  )}
+						  onChange={() => toggleTeam(selectedUser, team)}
+						/>
 
-						  {team.name}
-						</label>
-					  ))}
+						{team.name}
+					  </label>
+					))}
 					</div>
 				  )}
 				</div>
@@ -558,15 +568,16 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
 			  <div style={styles.checkboxGrid}>
 				{skills.map((skill) => (
-				  <label key={skill.id} style={styles.checkboxLabel}>
-					<input
-					  type="checkbox"
-						checked={(selectedUser.teamsList || []).some((t) => t.id === team.id)}
-						onChange={() => toggleTeam(selectedUser, team)}
-					/>
-					{skill.name}
-				  </label>
-				))}
+					<label key={skill.id} style={styles.checkboxLabel}>
+						<input
+						  type="checkbox"
+						  checked={(selectedUser.skills || []).includes(skill.name)}
+						  onChange={() => toggleSkill(selectedUser, skill.name)}
+						/>
+						{skill.name}
+					  </label>
+					))}
+				
 			  </div>
 
 			  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
