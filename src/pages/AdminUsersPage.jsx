@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { styles } from "../styles/styles.js";
-import { skills } from "../data/InitialData.js";
 
-const teams = ["U9", "U11", "U13", "U15", "U18", "Seniors", "Club"];
+
+
 const roles = ["benevole", "referent", "admin"];
 const statuses = ["pending", "approved", "rejected"];
+
 
 export default function AdminUsersPage({ currentUser, onBack }) {
   const [users, setUsers] = useState([]);
@@ -16,11 +17,15 @@ export default function AdminUsersPage({ currentUser, onBack }) {
   const [roleFilter, setRoleFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
   const [page, setPage] = useState(1);
+  const [teams, setTeams] = useState([]);
+  const [skills, setSkills] = useState([]);
 
   const pageSize = 50;
 
   useEffect(() => {
     loadUsers();
+	loadTeams();
+	loadSkills();
   }, []);
 
   async function loadUsers() {
@@ -64,6 +69,30 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       setMessage("");
     }, 2000);
   }
+  
+  async function loadTeams() {
+	  const { data, error } = await supabase
+		.from("teams")
+		.select("*")
+		.eq("active", true)
+		.order("name");
+
+	  if (!error) {
+		setTeams(data || []);
+	  }
+	}
+
+	async function loadSkills() {
+	  const { data, error } = await supabase
+		.from("skills")
+		.select("*")
+		.eq("active", true)
+		.order("name");
+
+	  if (!error) {
+		setSkills(data || []);
+	  }
+	}
 
   function toggleSkill(user, skill) {
     const currentSkills = user.skills || [];
@@ -216,10 +245,10 @@ export default function AdminUsersPage({ currentUser, onBack }) {
           >
             <option value="all">Toutes les équipes</option>
             {teams.map((team) => (
-              <option key={team} value={team}>
-                {team}
-              </option>
-            ))}
+			  <option key={team.id} value={team.name}>
+				{team.name}
+			  </option>
+			))}
           </select>
 
           <select
@@ -401,7 +430,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 			  >
 				<option value="">Aucune</option>
 				{teams.map((team) => (
-				  <option key={team}>{team}</option>
+				  <option
+					key={team.id}
+					value={team.name}
+				  >
+					{team.name}
+				  </option>
 				))}
 			  </select>
 
@@ -409,13 +443,13 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
 			  <div style={styles.checkboxGrid}>
 				{skills.map((skill) => (
-				  <label key={skill} style={styles.checkboxLabel}>
+				  <label key={skill.id} style={styles.checkboxLabel}>
 					<input
 					  type="checkbox"
-					  checked={(selectedUser.skills || []).includes(skill)}
-					  onChange={() => toggleSkill(selectedUser, skill)}
+					  checked={(selectedUser.skills || []).includes(skill.name)}
+					  onChange={() => toggleSkill(selectedUser, skill.name)}
 					/>
-					{skill}
+					{skill.name}
 				  </label>
 				))}
 			  </div>
