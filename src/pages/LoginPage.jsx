@@ -9,6 +9,8 @@ export default function LoginPage({ onLogin }) {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   async function login() {
     const { error } = await supabase.auth.signInWithPassword({
@@ -23,6 +25,27 @@ export default function LoginPage({ onLogin }) {
 
     onLogin();
   }
+  
+	async function resetPassword() {
+	  if (!resetEmail.trim()) {
+		alert("Merci de saisir votre adresse email.");
+		return;
+	  }
+
+	  const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+		redirectTo: "https://bcmf-web.vercel.app/reset-password",
+	  });
+
+	  if (error) {
+		alert(error.message);
+		return;
+	  }
+
+	  setShowResetPassword(false);
+	  setResetEmail("");
+
+	  alert("Un email de réinitialisation vient de vous être envoyé.");
+	}
 
   async function signup() {
 	  
@@ -125,6 +148,23 @@ export default function LoginPage({ onLogin }) {
           <button onClick={login} style={loginStyles.primaryButton}>
             Se connecter
           </button>
+		  
+			<div
+			  onClick={() => {
+				setResetEmail(email);
+				setShowResetPassword(true);
+			  }}
+			  style={{
+				textAlign: "center",
+				marginTop: 12,
+				cursor: "pointer",
+				color: "#16a34a",
+				fontWeight: "bold",
+			  }}
+			>
+			  Mot de passe oublié ?
+			</div>
+		  
 
           <button
 			  onClick={() => setShowSignup(true)}
@@ -200,6 +240,38 @@ export default function LoginPage({ onLogin }) {
 			</div>
 		  </div>
 		)}
+		
+		{showResetPassword && (
+		  <div style={loginStyles.modalOverlay}>
+			<div style={loginStyles.modal}>
+			  <h2 style={loginStyles.modalTitle}>Mot de passe oublié</h2>
+
+			  <p style={{ color: "#64748b", marginTop: 0 }}>
+				Saisissez votre adresse email. Vous recevrez un lien pour choisir un
+				nouveau mot de passe.
+			  </p>
+
+			  <label style={loginStyles.label}>Email</label>
+			  <input
+				placeholder="exemple@mail.com"
+				value={resetEmail}
+				onChange={(e) => setResetEmail(e.target.value)}
+				style={loginStyles.input}
+			  />
+
+			  <button onClick={resetPassword} style={loginStyles.primaryButton}>
+				Réinitialiser le mot de passe
+			  </button>
+
+			  <button
+				onClick={() => setShowResetPassword(false)}
+				style={loginStyles.secondaryButton}
+			  >
+				Annuler
+			  </button>
+			</div>
+		  </div>
+		)}		
     </div>
   );
 }

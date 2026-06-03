@@ -16,102 +16,126 @@ export default function MissionCard({
   const [editing, setEditing] = useState(false);
 
   const [editMission, setEditMission] = useState({
-	  name: mission.name,
-	  need: mission.need,
-	  requiredSkill: mission.requiredSkill,
-	});
+    name: mission.name,
+    need: mission.need,
+    requiredSkill: mission.requiredSkill,
+  });
 
   return (
     <div style={styles.card}>
-      <h3>{mission.name}</h3>
-      <p>Habilitation : <strong>{mission.requiredSkill}</strong></p>
-      <p>Affectés : <strong>{mission.assigned.length}/{mission.need}</strong></p>
-      <p>{mission.assigned.length ? mission.assigned.join(", ") : "Personne pour l’instant"}</p>
+      <h3 style={styles.missionTitle}>{mission.name}</h3>
 
-      {["benevole", "referent", "admin"].includes(currentUser.role) && (
-        <>
-          {isAssigned ? (
-            <button style={styles.darkButton} onClick={onCancelMission}>
-              Me désinscrire
-            </button>
-          ) : (
-            <button
-              style={!hasSkill || full ? styles.disabledButton : styles.orangeButton}
-              disabled={!hasSkill || full}
-              onClick={onTakeMission}
-            >
-              {!hasSkill ? "Non habilité" : full ? "Mission complète" : "Je me propose"}
-            </button>
-          )}
-        </>
-      )}
-	  {canManage && (
-		  <button
-			onClick={onDeleteMission}
-			style={styles.redButton}
-		  >
-			Supprimer mission
-		  </button>
-		)}
-		
-	  {canManage && (
-		  <>
-			<button
-			  onClick={() => setEditing(!editing)}
-			  style={styles.orangeButton}
-			>
-			  {editing ? "Fermer" : "Modifier mission"}
-			</button>
+      <p style={styles.missionInfo}>
+        Habilitation : <strong>{mission.requiredSkill}</strong>
+      </p>
 
-			{editing && (
-			  <div style={{ marginTop: 15 }}>
-				<input
-				  value={editMission.name}
-				  onChange={(e) =>
-					setEditMission({
-					  ...editMission,
-					  name: e.target.value,
-					})
-				  }
-				  style={styles.input}
-				/>
+      <p style={styles.missionInfo}>
+        Affectés :{" "}
+        <strong>
+          {mission.assigned.length}/{mission.need}
+        </strong>
+      </p>
 
-				<input
-				  type="number"
-				  value={editMission.need}
-				  onChange={(e) =>
-					setEditMission({
-					  ...editMission,
-					  need: e.target.value,
-					})
-				  }
-				  style={styles.input}
-				/>
-
-				<input
-				  value={editMission.requiredSkill}
-				  onChange={(e) =>
-					setEditMission({
-					  ...editMission,
-					  requiredSkill: e.target.value,
-					})
-				  }
-				  style={styles.input}
-				/>
-
-				<button
-				  onClick={() => {
-					onUpdateMission(editMission);
-					setEditing(false);
-				  }}
-				  style={styles.orangeButton}
-				>
-				  Sauvegarder mission
-				</button>
+      <div style={styles.assignedList}>
+        {mission.assigned.length
+          ? mission.assigned.join(", ")
+          : "Personne pour l’instant"}
       </div>
-    )}
-  </>
-)}
+
+      <div style={styles.buttonRow}>
+        {["benevole", "referent", "admin"].includes(currentUser.role) && (
+          <>
+            {isAssigned ? (
+              <button style={styles.darkButton} onClick={onCancelMission}>
+                Me désinscrire
+              </button>
+            ) : (
+              <button
+                style={
+                  !hasSkill || full
+                    ? styles.disabledButton
+                    : styles.orangeButton
+                }
+                disabled={!hasSkill || full}
+                onClick={onTakeMission}
+              >
+                {!hasSkill
+                  ? "Non habilité"
+                  : full
+                  ? "Mission complète"
+                  : "Je me propose"}
+              </button>
+            )}
+          </>
+        )}
+
+        {canManage && (
+          <>
+            <button onClick={onDeleteMission} style={styles.redButton}>
+              Supprimer mission
+            </button>
+
+            <button
+              onClick={() => setEditing(!editing)}
+              style={styles.orangeButton}
+            >
+              {editing ? "Fermer" : "Modifier mission"}
+            </button>
+          </>
+        )}
+      </div>
+
+      {canManage && editing && (
+        <div style={styles.editBox}>
+          <input
+            value={editMission.name}
+            onChange={(e) =>
+              setEditMission({
+                ...editMission,
+                name: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+
+          <input
+            type="number"
+            min="1"
+            value={editMission.need}
+            onChange={(e) =>
+              setEditMission({
+                ...editMission,
+                need: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+
+          <input
+            value={editMission.requiredSkill}
+            onChange={(e) =>
+              setEditMission({
+                ...editMission,
+                requiredSkill: e.target.value,
+              })
+            }
+            style={styles.input}
+          />
+
+          <button
+            onClick={() => {
+              onUpdateMission({
+                ...editMission,
+                need: Number(editMission.need),
+              });
+              setEditing(false);
+            }}
+            style={styles.orangeButton}
+          >
+            Sauvegarder mission
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -194,15 +194,21 @@ export default function AdminUsersPage({ currentUser, onBack }) {
     return users.filter((user) => {
       const search = query.toLowerCase();
 
-      const matchesSearch =
-        user.name?.toLowerCase().includes(search) ||
-        user.email?.toLowerCase().includes(search);
+		const fullName =
+		  `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
+
+		const matchesSearch =
+		  fullName.includes(search) ||
+		  user.email?.toLowerCase().includes(search);
 
       const matchesStatus =
         statusFilter === "all" || user.status === statusFilter;
 
-      const matchesTeam =
-        teamFilter === "all" || user.team === teamFilter;
+		const matchesTeam =
+		  teamFilter === "all" ||
+		  (user.teamsList || []).some(
+			(team) => team.name === teamFilter
+		  );
 
       const matchesRole =
         roleFilter === "all" || user.role === roleFilter;
@@ -351,7 +357,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
           Utilisateurs affichés : {filteredUsers.length}
         </h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div style={styles.tableWrapper}>
           <table
             style={{
               width: "100%",
@@ -638,27 +644,29 @@ const tdStyle = {
   verticalAlign: "middle",
 };
 
-const modalStyles = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,.55)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    zIndex: 999,
-  },
 
- modal: {
-  width: "95%",
-  maxWidth: 1000,
-  minHeight: "80vh",
-  maxHeight: "95vh",
-  overflowY: "auto",
-  background: "white",
-  borderRadius: 24,
-  padding: 30,
-  boxShadow: "0 20px 60px rgba(0,0,0,.35)",
-}
+
+	const modalStyles = {
+	  overlay: {
+		position: "fixed",
+		inset: 0,
+		background: "rgba(0,0,0,.55)",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		padding: 20,
+		zIndex: 999,
+	  },
+
+	  modal: {
+		width: "95%",
+		maxWidth: 1000,
+		minHeight: "80vh",
+		maxHeight: "95vh",
+		overflowY: "auto",
+		background: "white",
+		borderRadius: 24,
+		padding: 30,
+		boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+	  },
 };

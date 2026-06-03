@@ -7,7 +7,7 @@ import EventPage from "./pages/EventPage.jsx";
 import { styles } from "./styles/styles.js";
 import LoginPage from "./pages/LoginPage.jsx";
 import PartnersPage from "./pages/PartnersPage.jsx";
-
+import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 
 export default function App() {
  
@@ -23,6 +23,10 @@ export default function App() {
 	  last_name: "",
 	  phone: "",
 	});
+	
+	if (window.location.pathname === "/reset-password") {
+	  return <ResetPasswordPage />;
+	}	
 	  
  useEffect(() => {
   supabase.auth.getSession().then(({ data }) => {

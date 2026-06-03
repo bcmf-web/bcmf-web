@@ -34,7 +34,10 @@ export default function EventPage({
   });
 
   function submitMission() {
-    onAddMission(event.id, newMission);
+	onAddMission(event.id, {
+	  ...newMission,
+	  need: Number(newMission.need),
+	});
 
     setNewMission({
       name: "",
@@ -68,9 +71,15 @@ export default function EventPage({
 			</span>
 		  )}
 		</div>
-        <h1>{event.title}</h1>
-        <p>📅 {event.date} · {event.time}</p>
-        <p>📍 {event.place}</p>
+		<h1 style={styles.eventHeroTitle}>{event.title}</h1>
+
+		<p style={styles.eventHeroInfo}>
+		  📅 {event.date} · {event.time}
+		</p>
+
+		<p style={styles.eventHeroInfo}>
+		  📍 {event.place}
+		</p>
         <Progress value={eventCoverage(event)} />
 		{manageAllowed && (
 		  <button
@@ -169,7 +178,7 @@ export default function EventPage({
         </section>
       )}
 
-      <h2 style={{ marginTop: 30 }}>Missions</h2>
+      <h2 style={styles.sectionTitle}>Missions</h2>
 
       <div style={styles.grid}>
 	  {event.missions.map((mission) => (

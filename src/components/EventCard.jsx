@@ -22,14 +22,27 @@ export default function EventCard({ event, coverage, onOpen }) {
         )}
       </div>
 
-      <h2>{event.title}</h2>
-      <p>📅 {event.date} · {event.time}</p>
-      <p>📍 {event.place}</p>
-      <p>{event.missions.length} missions</p>
+		<h2 style={styles.eventTitle}>
+		  {event.title}
+		</h2>
+
+		<p style={styles.eventInfo}>
+		  📅 {event.date} · {event.time}
+		</p>
+
+		<p style={styles.eventInfo}>
+		  📍 {event.place}
+		</p>
+
+		<p style={styles.eventInfo}>
+		  👥 {event.missions.length} mission(s)
+		</p>
 
       <Progress value={coverage} />
 
-      <p style={styles.link}>Ouvrir l’événement →</p>
+		<p style={styles.eventFooter}>
+		  Ouvrir l'événement →
+		</p>
     </div>
   );
 }

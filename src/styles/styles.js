@@ -2,48 +2,56 @@ const BCMF_GREEN = "#16a34a";
 const BCMF_GREEN_DARK = "#14532d";
 const BCMF_GREEN_LIGHT = "#dcfce7";
 
+const isMobile = window.innerWidth <= 768;
+
 export const styles = {
   page: {
     minHeight: "100vh",
     background: "#f4f6fb",
-    padding: 30,
+    padding: isMobile ? 12 : 30,
     fontFamily: "Arial, sans-serif",
+    boxSizing: "border-box",
   },
 
   header: {
     background: `linear-gradient(135deg, #0f172a 0%, ${BCMF_GREEN_DARK} 60%, ${BCMF_GREEN} 100%)`,
     color: "white",
-    borderRadius: 25,
-    padding: 25,
+    borderRadius: isMobile ? 16 : 25,
+    padding: isMobile ? 16 : 25,
     display: "flex",
-    alignItems: "center",
+    alignItems: isMobile ? "flex-start" : "center",
     justifyContent: "space-between",
+    flexDirection: isMobile ? "column" : "row",
     flexWrap: "wrap",
-    gap: 20,
+    gap: isMobile ? 14 : 20,
   },
 
   brand: {
     display: "flex",
     alignItems: "center",
-    gap: 18,
+    gap: isMobile ? 12 : 18,
+    width: isMobile ? "100%" : "auto",
   },
 
   logo: {
-    height: 80,
-    width: 80,
+    height: isMobile ? 58 : 80,
+    width: isMobile ? 58 : 80,
     objectFit: "contain",
     background: "white",
-    borderRadius: 18,
+    borderRadius: isMobile ? 12 : 18,
     padding: 8,
+    flexShrink: 0,
   },
 
   title: {
     margin: 0,
-    fontSize: 36,
+    fontSize: isMobile ? 24 : 36,
+    lineHeight: 1.1,
   },
 
   subtitle: {
     margin: "5px 0 0",
+    fontSize: isMobile ? 13 : 16,
   },
 
   select: {
@@ -51,6 +59,7 @@ export const styles = {
     borderRadius: 12,
     border: "none",
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
   },
 
   userPill: {
@@ -58,44 +67,52 @@ export const styles = {
     padding: "10px 15px",
     borderRadius: 999,
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
+    textAlign: "center",
+    boxSizing: "border-box",
   },
 
   kpis: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: 18,
-    marginTop: 25,
+    gridTemplateColumns: isMobile
+      ? "1fr"
+      : "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: isMobile ? 12 : 18,
+    marginTop: isMobile ? 16 : 25,
   },
 
   kpi: {
     background: "white",
-    padding: 20,
-    borderRadius: 18,
+    padding: isMobile ? 16 : 20,
+    borderRadius: isMobile ? 14 : 18,
     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
     borderTop: `5px solid ${BCMF_GREEN}`,
   },
 
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
-    gap: 20,
-    marginTop: 20,
+    gridTemplateColumns: isMobile
+      ? "1fr"
+      : "repeat(auto-fit, minmax(310px, 1fr))",
+    gap: isMobile ? 14 : 20,
+    marginTop: isMobile ? 14 : 20,
   },
 
   card: {
     background: "white",
-    padding: 22,
-    borderRadius: 20,
+    padding: isMobile ? 16 : 22,
+    borderRadius: isMobile ? 16 : 20,
     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
     cursor: "pointer",
+    boxSizing: "border-box",
   },
 
   hero: {
     background: "white",
-    padding: 30,
-    borderRadius: 25,
+    padding: isMobile ? 18 : 30,
+    borderRadius: isMobile ? 16 : 25,
     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
-    marginTop: 25,
+    marginTop: isMobile ? 16 : 25,
     borderTop: `6px solid ${BCMF_GREEN}`,
   },
 
@@ -138,6 +155,7 @@ export const styles = {
     borderRadius: 12,
     cursor: "pointer",
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
   },
 
   orangeButton: {
@@ -148,6 +166,7 @@ export const styles = {
     borderRadius: 12,
     cursor: "pointer",
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
   },
 
   darkButton: {
@@ -158,6 +177,7 @@ export const styles = {
     borderRadius: 12,
     cursor: "pointer",
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
   },
 
   disabledButton: {
@@ -168,6 +188,18 @@ export const styles = {
     borderRadius: 12,
     cursor: "not-allowed",
     fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
+  },
+
+  redButton: {
+    background: "#c0392b",
+    color: "white",
+    border: "none",
+    padding: "12px 18px",
+    borderRadius: 12,
+    cursor: "pointer",
+    fontWeight: "bold",
+    width: isMobile ? "100%" : "auto",
   },
 
   adminNotice: {
@@ -180,31 +212,146 @@ export const styles = {
     fontWeight: "bold",
   },
 
-  redButton: {
-    background: "#c0392b",
+  teamBadge: {
+    display: "inline-block",
+    background: "#7c3aed",
     color: "white",
-    border: "none",
-    padding: "12px 18px",
-    borderRadius: 12,
-    cursor: "pointer",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
     fontWeight: "bold",
   },
-  
-  teamBadge: {
-  display: "inline-block",
-  background: "#7c3aed",
-  color: "white",
-  padding: "4px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: "bold",
-  },
-  
+
   badgesContainer: {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 6,
-  marginTop: 8,
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
   },
+
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+  },
+
+  modal: {
+    width: isMobile ? "calc(100vw - 24px)" : 520,
+    maxWidth: "100%",
+    maxHeight: isMobile ? "90vh" : "auto",
+    overflowY: "auto",
+    boxSizing: "border-box",
+  },
+  
+    panel: {
+    background: "white",
+    padding: isMobile ? 16 : 24,
+    borderRadius: isMobile ? 16 : 22,
+    boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+    marginTop: isMobile ? 18 : 25,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    boxSizing: "border-box",
+  },
+
+  input: {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #d1d5db",
+    fontSize: 15,
+    boxSizing: "border-box",
+  },
+
+  checkboxGrid: {
+    display: "grid",
+    gridTemplateColumns: isMobile
+      ? "1fr"
+      : "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "#f8fafc",
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
+    fontSize: 14,
+    cursor: "pointer",
+  },
+  
+	  eventTitle: {
+	  marginTop: 12,
+	  marginBottom: 10,
+	  fontSize: isMobile ? 20 : 24,
+	  lineHeight: 1.2,
+	},
+
+	eventInfo: {
+	  margin: "6px 0",
+	  fontSize: isMobile ? 14 : 15,
+	},
+
+	eventFooter: {
+	  marginTop: 12,
+	  color: BCMF_GREEN,
+	  fontWeight: "bold",
+	},
+
+	eventHeroTitle: {
+	  margin: "14px 0 10px",
+	  fontSize: isMobile ? 26 : 36,
+	  lineHeight: 1.15,
+	},
+
+	eventHeroInfo: {
+	  margin: "8px 0",
+	  fontSize: isMobile ? 15 : 17,
+	},
+
+	sectionTitle: {
+	  marginTop: isMobile ? 24 : 30,
+	  fontSize: isMobile ? 22 : 26,
+	},
+
+	missionTitle: {
+	  marginTop: 0,
+	  marginBottom: 10,
+	  fontSize: isMobile ? 20 : 22,
+	},
+
+	missionInfo: {
+	  margin: "7px 0",
+	  fontSize: isMobile ? 14 : 15,
+	},
+
+	assignedList: {
+	  background: "#f8fafc",
+	  padding: 10,
+	  borderRadius: 12,
+	  marginTop: 10,
+	  marginBottom: 12,
+	  fontSize: 14,
+	},
+
+	buttonRow: {
+	  display: "flex",
+	  flexDirection: isMobile ? "column" : "row",
+	  gap: 10,
+	  marginTop: 12,
+	  flexWrap: "wrap",
+	},
+
+	editBox: {
+	  marginTop: 15,
+	  display: "flex",
+	  flexDirection: "column",
+	  gap: 10,
+	},
 
 };

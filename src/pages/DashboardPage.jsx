@@ -66,7 +66,14 @@ export default function DashboardPage({
           value={visibleEvents.reduce((sum, e) => sum + e.missions.length, 0)}
         />
         <Kpi label="Rôle" value={currentUser.role} />
-        <Kpi label="Équipe" value={currentUser.team || "Toutes"} />
+		<Kpi
+		  label="Équipes"
+		  value={
+			currentUser.teamsList?.length
+			  ? currentUser.teamsList.map((team) => team.name).join(", ")
+			  : "Toutes"
+		  }
+		/>
       </section>
 
       {canCreateEvent && (
