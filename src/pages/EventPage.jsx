@@ -55,7 +55,19 @@ export default function EventPage({
       </button>
 
       <section style={styles.hero}>
-        <span style={styles.badge}>{event.team}</span>
+		<div style={styles.badgesContainer}>
+		  {event.teamsList?.length > 0 ? (
+			event.teamsList.map((team) => (
+			  <span key={team.id} style={styles.teamBadge}>
+				{team.name}
+			  </span>
+			))
+		  ) : (
+			<span style={styles.teamBadge}>
+			  {event.team}
+			</span>
+		  )}
+		</div>
         <h1>{event.title}</h1>
         <p>📅 {event.date} · {event.time}</p>
         <p>📍 {event.place}</p>
