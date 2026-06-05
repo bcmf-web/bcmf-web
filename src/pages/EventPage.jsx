@@ -6,6 +6,7 @@ import { canManageEvent } from "../services/permissions.js";
 import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
+import PlanningView from "../components/PlanningView.jsx";
 
 export default function EventPage({
   event,
@@ -29,6 +30,9 @@ export default function EventPage({
     end_datetime: toInputDatetime(event.end_datetime),
     place: event.place,
   });
+
+  const canSeePlanning = ["admin", "referent"].includes(currentUser.role);
+  const [viewMode, setViewMode] = useState("liste"); // "liste" | "planning"
 
   const [newMission, setNewMission] = useState({
     name: "",
@@ -207,22 +211,45 @@ export default function EventPage({
         </section>
       )}
 
-      <h2 style={styles.sectionTitle}>Missions</h2>
-
-      <div style={styles.grid}>
-        {event.missions.map((mission) => (
-          <MissionCard
-            key={mission.id}
-            mission={mission}
-            currentUser={currentUser}
-            onTakeMission={(slotStart, slotEnd) => onTakeMission(event.id, mission.id, slotStart, slotEnd)}
-            onCancelMission={() => onCancelMission(event.id, mission.id)}
-            canManage={manageAllowed}
-            onDeleteMission={() => onDeleteMission(event.id, mission.id)}
-            onUpdateMission={(updated) => onUpdateMission(event.id, mission.id, updated)}
-          />
-        ))}
+      {/* Toggle vue liste / planning */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 30 }}>
+        <h2 style={{ ...styles.sectionTitle, margin: 0 }}>Missions</h2>
+        {canSeePlanning && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              style={viewMode === "liste" ? styles.orangeButton : styles.darkButton}
+              onClick={() => setViewMode("liste")}
+            >
+              📋 Liste
+            </button>
+            <button
+              style={viewMode === "planning" ? styles.orangeButton : styles.darkButton}
+              onClick={() => setViewMode("planning")}
+            >
+              📅 Planning
+            </button>
+          </div>
+        )}
       </div>
+
+      {viewMode === "planning" && canSeePlanning ? (
+        <PlanningView event={event} />
+      ) : (
+        <div style={styles.grid}>
+          {event.missions.map((mission) => (
+            <MissionCard
+              key={mission.id}
+              mission={mission}
+              currentUser={currentUser}
+              onTakeMission={(slotStart, slotEnd) => onTakeMission(event.id, mission.id, slotStart, slotEnd)}
+              onCancelMission={() => onCancelMission(event.id, mission.id)}
+              canManage={manageAllowed}
+              onDeleteMission={() => onDeleteMission(event.id, mission.id)}
+              onUpdateMission={(updated) => onUpdateMission(event.id, mission.id, updated)}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 }
