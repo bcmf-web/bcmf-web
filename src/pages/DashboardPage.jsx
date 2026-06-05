@@ -5,6 +5,17 @@ import { styles } from "../styles/styles.js";
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  // Format DD/MM/YYYY
+  if (dateStr.includes("/")) {
+    const [day, month, year] = dateStr.split("/");
+    return new Date(year, month - 1, day);
+  }
+  // Format YYYY-MM-DD
+  return new Date(dateStr);
+}
+
 export default function DashboardPage({
   currentUser,
   visibleEvents,
@@ -12,7 +23,8 @@ export default function DashboardPage({
   onOpenEvent,
   onAddEvent,
 }) {
-	const [newEvent, setNewEvent] = useState({
+  const [showPast, setShowPast] = useState(false);
+  const [newEvent, setNewEvent] = useState({
 	  title: "",
 	  team: "",
 	  teams: [],
@@ -164,17 +176,41 @@ export default function DashboardPage({
         </section>
       )}
 
-      <h2 style={{ marginTop: 35 }}>Événements</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 35 }}>
+        <h2 style={{ margin: 0 }}>Événements</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            style={!showPast ? styles.orangeButton : styles.darkButton}
+            onClick={() => setShowPast(false)}
+          >
+            À venir
+          </button>
+          <button
+            style={showPast ? styles.orangeButton : styles.darkButton}
+            onClick={() => setShowPast(true)}
+          >
+            Passés
+          </button>
+        </div>
+      </div>
 
       <div style={styles.grid}>
-        {visibleEvents.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            coverage={eventCoverage(event)}
-            onOpen={onOpenEvent}
-          />
-        ))}
+        {visibleEvents
+          .filter((e) => {
+            const d = parseDate(e.date);
+            if (!d) return true;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return showPast ? d < today : d >= today;
+          })
+          .map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              coverage={eventCoverage(event)}
+              onOpen={onOpenEvent}
+            />
+          ))}
       </div>
     </>
   );
