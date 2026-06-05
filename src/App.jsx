@@ -76,6 +76,8 @@ export default function App() {
 
   useEffect(() => {
     async function loadEvents() {
+      const todayStr = new Date().toISOString().split("T")[0];
+
       const { data, error } = await supabase
         .from("events")
         .select(`
@@ -96,7 +98,9 @@ export default function App() {
               user_name
             )
           )
-        `);
+        `)
+        .gte("date", todayStr)
+        .order("date", { ascending: true });
 
       if (error) {
         toast("Erreur de chargement des événements : " + error.message, "error");
@@ -465,21 +469,12 @@ export default function App() {
     );
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const visibleEvents = (
+  const visibleEvents =
     currentUser.role === "admin"
       ? events
       : currentUser.role === "referent"
       ? events.filter((e) => e.team === currentUser.team)
-      : events
-  ).filter((e) => {
-    if (!e.date) return true;
-    const eventDate = new Date(e.date);
-    eventDate.setHours(0, 0, 0, 0);
-    return eventDate >= today;
-  });
+      : events;
 
   const profileModal = showProfile && (
     <div style={modalStyles.overlay}>
