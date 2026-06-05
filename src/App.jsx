@@ -76,8 +76,6 @@ export default function App() {
 
   useEffect(() => {
     async function loadEvents() {
-      const todayStr = new Date().toISOString().split("T")[0];
-
       const { data, error } = await supabase
         .from("events")
         .select(`
@@ -99,7 +97,6 @@ export default function App() {
             )
           )
         `)
-        .gte("date", todayStr)
         .order("date", { ascending: true });
 
       if (error) {
