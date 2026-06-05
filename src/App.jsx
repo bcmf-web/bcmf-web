@@ -465,12 +465,15 @@ export default function App() {
     );
   }
 
-  const visibleEvents =
+  const today = new Date().toISOString().split("T")[0];
+
+  const visibleEvents = (
     currentUser.role === "admin"
       ? events
       : currentUser.role === "referent"
       ? events.filter((e) => e.team === currentUser.team)
-      : events;
+      : events
+  ).filter((e) => e.date >= today);
 
   const profileModal = showProfile && (
     <div style={modalStyles.overlay}>
