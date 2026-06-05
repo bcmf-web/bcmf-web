@@ -5,6 +5,7 @@ import { styles } from "../styles/styles.js";
 import { canManageEvent } from "../services/permissions.js";
 import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
 
 export default function EventPage({
   event,
@@ -23,31 +24,36 @@ export default function EventPage({
   const manageAllowed = canManageEvent(currentUser, event);
 
   const [editEvent, setEditEvent] = useState({
-   title: event.title,
-   date: event.date,
-   time: event.time,
-   place: event.place,
+    title: event.title,
+    start_datetime: toInputDatetime(event.start_datetime),
+    end_datetime: toInputDatetime(event.end_datetime),
+    place: event.place,
   });
 
   const [newMission, setNewMission] = useState({
     name: "",
     need: 1,
-    requiredSkill: "Buvette",
+    requiredSkill: skills[0] || "",
+    timeStart: "",
+    timeEnd: "",
   });
 
-  function submitMission() {
-	onAddMission(event.id, {
-	  ...newMission,
-	  need: Number(newMission.need),
-	});
+  const hasDatetime = !!event.start_datetime;
+  const isMultiDay =
+    hasDatetime &&
+    event.end_datetime &&
+    new Date(event.start_datetime).toDateString() !==
+      new Date(event.end_datetime).toDateString();
 
-    setNewMission({
-      name: "",
-      need: 1,
-      requiredSkill: "Buvette",
-    });
+  function submitMission() {
+    if (!newMission.name.trim()) {
+      toast("Le nom de la mission est obligatoire.", "warning");
+      return;
+    }
+    onAddMission(event.id, { ...newMission, need: Number(newMission.need) });
+    setNewMission({ name: "", need: 1, requiredSkill: skills[0] || "", timeStart: "", timeEnd: "" });
   }
-  
+
   function submitEventUpdate() {
     onUpdateEvent(event.id, editEvent);
   }
@@ -59,82 +65,90 @@ export default function EventPage({
       </button>
 
       <section style={styles.hero}>
-		<div style={styles.badgesContainer}>
-		  {event.teamsList?.length > 0 ? (
-			event.teamsList.map((team) => (
-			  <span key={team.id} style={styles.teamBadge}>
-				{team.name}
-			  </span>
-			))
-		  ) : (
-			<span style={styles.teamBadge}>
-			  {event.team}
-			</span>
-		  )}
-		</div>
-		<h1 style={styles.eventHeroTitle}>{event.title}</h1>
+        <div style={styles.badgesContainer}>
+          {event.teamsList?.length > 0 ? (
+            event.teamsList.map((team) => (
+              <span key={team.id} style={styles.teamBadge}>{team.name}</span>
+            ))
+          ) : (
+            <span style={styles.teamBadge}>{event.team}</span>
+          )}
+        </div>
 
-		<p style={styles.eventHeroInfo}>
-		  📅 {event.date} · {event.time}
-		</p>
+        <h1 style={styles.eventHeroTitle}>{event.title}</h1>
 
-		<p style={styles.eventHeroInfo}>
-		  📍 {event.place}
-		</p>
+        {hasDatetime ? (
+          isMultiDay ? (
+            <>
+              <p style={styles.eventHeroInfo}>
+                📅 Début : {formatDate(event.start_datetime)} à {formatTime(event.start_datetime)}
+              </p>
+              <p style={styles.eventHeroInfo}>
+                🏁 Fin : {formatDate(event.end_datetime)} à {formatTime(event.end_datetime)}
+              </p>
+            </>
+          ) : (
+            <p style={styles.eventHeroInfo}>
+              📅 {formatDate(event.start_datetime)} · {formatTime(event.start_datetime)}
+              {event.end_datetime && ` → ${formatTime(event.end_datetime)}`}
+            </p>
+          )
+        ) : (
+          <p style={styles.eventHeroInfo}>📅 Date à définir</p>
+        )}
+
+        <p style={styles.eventHeroInfo}>📍 {event.place || "-"}</p>
+
         <Progress value={eventCoverage(event)} />
-		{manageAllowed && (
-		  <button
-			onClick={() => onDeleteEvent(event.id)}
-			style={styles.redButton}
-		  >
-			Supprimer événement
-		  </button>
-		)}
-		
+
+        {manageAllowed && (
+          <button onClick={() => onDeleteEvent(event.id)} style={styles.redButton}>
+            Supprimer événement
+          </button>
+        )}
       </section>
-	  {manageAllowed && (
-		  <section style={styles.panel}>
-			<h2>Modifier l’événement</h2>
 
-			<input
-			  value={editEvent.title}
-			  onChange={(e) =>
-				setEditEvent({ ...editEvent, title: e.target.value })
-			  }
-			  style={styles.input}
-			/>
+      {manageAllowed && (
+        <section style={styles.panel}>
+          <h2>Modifier l'événement</h2>
 
-			<input
-			  type="date"
-			  value={editEvent.date}
-			  onChange={(e) =>
-				setEditEvent({ ...editEvent, date: e.target.value })
-			  }
-			  style={styles.input}
-			/>
+          <input
+            placeholder="Titre"
+            value={editEvent.title}
+            onChange={(e) => setEditEvent({ ...editEvent, title: e.target.value })}
+            style={styles.input}
+          />
 
-			<input
-			  type="time"
-			  value={editEvent.time}
-			  onChange={(e) =>
-				setEditEvent({ ...editEvent, time: e.target.value })
-			  }
-			  style={styles.input}
-			/>
+          <label style={{ fontWeight: "bold" }}>Début</label>
+          <input
+            type="datetime-local"
+            value={editEvent.start_datetime}
+            onChange={(e) => setEditEvent({ ...editEvent, start_datetime: e.target.value })}
+            style={styles.input}
+          />
 
-			<input
-			  value={editEvent.place}
-			  onChange={(e) =>
-				setEditEvent({ ...editEvent, place: e.target.value })
-			  }
-			  style={styles.input}
-			/>
+          <label style={{ fontWeight: "bold" }}>Fin</label>
+          <input
+            type="datetime-local"
+            value={editEvent.end_datetime}
+            min={editEvent.start_datetime}
+            onChange={(e) => setEditEvent({ ...editEvent, end_datetime: e.target.value })}
+            style={styles.input}
+          />
 
-			<button onClick={submitEventUpdate} style={styles.orangeButton}>
-			  Enregistrer modifications
-			</button>
-		  </section>
-		)}
+          <input
+            placeholder="Lieu"
+            value={editEvent.place}
+            onChange={(e) => setEditEvent({ ...editEvent, place: e.target.value })}
+            style={styles.input}
+          />
+
+          <button onClick={submitEventUpdate} style={styles.orangeButton}>
+            Enregistrer modifications
+          </button>
+        </section>
+      )}
+
       {manageAllowed && (
         <section style={styles.panel}>
           <h2>Ajouter une mission</h2>
@@ -142,38 +156,50 @@ export default function EventPage({
           <input
             placeholder="Nom de la mission"
             value={newMission.name}
-            onChange={(e) =>
-              setNewMission({ ...newMission, name: e.target.value })
-            }
+            onChange={(e) => setNewMission({ ...newMission, name: e.target.value })}
             style={styles.input}
           />
 
           <input
             type="number"
             min="1"
+            placeholder="Nombre de bénévoles"
             value={newMission.need}
-            onChange={(e) =>
-              setNewMission({ ...newMission, need: e.target.value })
-            }
+            onChange={(e) => setNewMission({ ...newMission, need: e.target.value })}
             style={styles.input}
           />
 
           <select
             value={newMission.requiredSkill}
-            onChange={(e) =>
-              setNewMission({
-                ...newMission,
-                requiredSkill: e.target.value,
-              })
-            }
+            onChange={(e) => setNewMission({ ...newMission, requiredSkill: e.target.value })}
             style={styles.input}
           >
             {skills.map((skill) => (
-              <option key={skill} value={skill}>
-                {skill}
-              </option>
+              <option key={skill} value={skill}>{skill}</option>
             ))}
           </select>
+
+          <label style={{ fontWeight: "bold" }}>Plage horaire de la mission</label>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 13, color: "#64748b" }}>Début</label>
+              <input
+                type="time"
+                value={newMission.timeStart}
+                onChange={(e) => setNewMission({ ...newMission, timeStart: e.target.value })}
+                style={styles.input}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 13, color: "#64748b" }}>Fin</label>
+              <input
+                type="time"
+                value={newMission.timeEnd}
+                onChange={(e) => setNewMission({ ...newMission, timeEnd: e.target.value })}
+                style={styles.input}
+              />
+            </div>
+          </div>
 
           <button onClick={submitMission} style={styles.orangeButton}>
             Ajouter mission
@@ -184,21 +210,19 @@ export default function EventPage({
       <h2 style={styles.sectionTitle}>Missions</h2>
 
       <div style={styles.grid}>
-	  {event.missions.map((mission) => (
-		<MissionCard
-		  key={mission.id}
-		  mission={mission}
-		  currentUser={currentUser}
-		  onTakeMission={() => onTakeMission(event.id, mission.id)}
-		  onCancelMission={() => onCancelMission(event.id, mission.id)}
-		  canManage={manageAllowed}
-		  onDeleteMission={() => onDeleteMission(event.id, mission.id)}
-		  onUpdateMission={(updatedMission) =>
-			  onUpdateMission(event.id, mission.id, updatedMission)
-			}
-		/>
-	  ))}
-	</div>
+        {event.missions.map((mission) => (
+          <MissionCard
+            key={mission.id}
+            mission={mission}
+            currentUser={currentUser}
+            onTakeMission={(slotStart, slotEnd) => onTakeMission(event.id, mission.id, slotStart, slotEnd)}
+            onCancelMission={() => onCancelMission(event.id, mission.id)}
+            canManage={manageAllowed}
+            onDeleteMission={() => onDeleteMission(event.id, mission.id)}
+            onUpdateMission={(updated) => onUpdateMission(event.id, mission.id, updated)}
+          />
+        ))}
+      </div>
     </>
   );
 }

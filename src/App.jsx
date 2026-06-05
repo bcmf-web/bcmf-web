@@ -91,9 +91,13 @@ export default function App() {
             name,
             need,
             required_skill,
+            time_start,
+            time_end,
             assignments (
               id,
-              user_name
+              user_name,
+              slot_start,
+              slot_end
             )
           )
         `)
@@ -112,7 +116,13 @@ export default function App() {
           name: mission.name,
           need: mission.need,
           requiredSkill: mission.required_skill,
-          assigned: mission.assignments.map((a) => a.user_name),
+          timeStart: mission.time_start,
+          timeEnd: mission.time_end,
+          assigned: mission.assignments.map((a) => ({
+            name: a.user_name,
+            slotStart: a.slot_start,
+            slotEnd: a.slot_end,
+          })),
         })),
       }));
 
@@ -126,11 +136,8 @@ export default function App() {
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
   function eventCoverage(event) {
-    const total = event.missions.reduce((sum, mission) => sum + mission.need, 0);
-    const assigned = event.missions.reduce(
-      (sum, mission) => sum + mission.assigned.length,
-      0
-    );
+    const total = event.missions.reduce((sum, m) => sum + m.need, 0);
+    const assigned = event.missions.reduce((sum, m) => sum + m.assigned.length, 0);
     return total === 0 ? 0 : Math.round((assigned / total) * 100);
   }
 
@@ -149,8 +156,8 @@ export default function App() {
           title: newEvent.title,
           team: firstTeam.name,
           category: newEvent.category,
-          date: newEvent.date,
-          time: newEvent.time,
+          start_datetime: newEvent.start_datetime || null,
+          end_datetime: newEvent.end_datetime || null,
           place: newEvent.place,
         },
       ])
@@ -190,8 +197,8 @@ export default function App() {
       .from("events")
       .update({
         title: updatedEvent.title,
-        date: updatedEvent.date,
-        time: updatedEvent.time,
+        start_datetime: updatedEvent.start_datetime || null,
+        end_datetime: updatedEvent.end_datetime || null,
         place: updatedEvent.place,
       })
       .eq("id", eventId);
@@ -207,8 +214,8 @@ export default function App() {
         return {
           ...event,
           title: updatedEvent.title,
-          date: updatedEvent.date,
-          time: updatedEvent.time,
+          start_datetime: updatedEvent.start_datetime,
+          end_datetime: updatedEvent.end_datetime,
           place: updatedEvent.place,
         };
       })
@@ -257,6 +264,8 @@ export default function App() {
           name: newMission.name,
           need: Number(newMission.need),
           required_skill: newMission.requiredSkill,
+          time_start: newMission.timeStart || null,
+          time_end: newMission.timeEnd || null,
         },
       ])
       .select();
@@ -271,6 +280,8 @@ export default function App() {
       name: data[0].name,
       need: data[0].need,
       requiredSkill: data[0].required_skill,
+      timeStart: data[0].time_start,
+      timeEnd: data[0].time_end,
       assigned: [],
     };
 
@@ -336,6 +347,8 @@ export default function App() {
         name: updatedMission.name,
         need: Number(updatedMission.need),
         required_skill: updatedMission.requiredSkill,
+        time_start: updatedMission.timeStart || null,
+        time_end: updatedMission.timeEnd || null,
       })
       .eq("id", missionId);
 
@@ -356,6 +369,8 @@ export default function App() {
               name: updatedMission.name,
               need: Number(updatedMission.need),
               requiredSkill: updatedMission.requiredSkill,
+              timeStart: updatedMission.timeStart,
+              timeEnd: updatedMission.timeEnd,
             };
           }),
         };
@@ -364,7 +379,7 @@ export default function App() {
     toast("Mission mise à jour", "success");
   }
 
-  async function takeMission(eventId, missionId) {
+  async function takeMission(eventId, missionId, slotStart, slotEnd) {
     if (currentUser.status !== "approved") {
       toast("Ton compte n'est pas encore validé.", "warning");
       return;
@@ -378,7 +393,7 @@ export default function App() {
       return;
     }
 
-    if (mission.assigned.includes(currentUser.name)) {
+    if (mission.assigned.some((a) => a.name === currentUser.name)) {
       toast("Tu es déjà inscrit sur cette mission.", "info");
       return;
     }
@@ -390,7 +405,12 @@ export default function App() {
 
     const { error } = await supabase
       .from("assignments")
-      .insert([{ mission_id: missionId, user_name: currentUser.name }]);
+      .insert([{
+        mission_id: missionId,
+        user_name: currentUser.name,
+        slot_start: slotStart || null,
+        slot_end: slotEnd || null,
+      }]);
 
     if (error) {
       toast(error.message, "error");
@@ -406,7 +426,11 @@ export default function App() {
             if (mission.id !== missionId) return mission;
             return {
               ...mission,
-              assigned: [...mission.assigned, currentUser.name],
+              assigned: [...mission.assigned, {
+                name: currentUser.name,
+                slotStart,
+                slotEnd,
+              }],
             };
           }),
         };
@@ -436,7 +460,7 @@ export default function App() {
             if (mission.id !== missionId) return mission;
             return {
               ...mission,
-              assigned: mission.assigned.filter((name) => name !== currentUser.name),
+              assigned: mission.assigned.filter((a) => a.name !== currentUser.name),
             };
           }),
         };
