@@ -576,25 +576,7 @@ export default function App() {
       <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
       {profileModal}
 
-      <div
-        style={{
-          background: "#fff8e1",
-          border: "1px solid #facc15",
-          color: "#92400e",
-          padding: "15px",
-          borderRadius: "12px",
-          marginTop: "15px",
-          marginBottom: "15px",
-          fontWeight: "bold",
-        }}
-      >
-        ⚠️ BCMF Flow – Bêta v0.2.0-beta
-        <br />
-        Cette application est actuellement en phase de test.
-        Merci de remonter toute anomalie ou suggestion d'amélioration.
-      </div>
-
-      <button style={styles.orangeButton} onClick={() => setPage("partners")}>
+<button style={styles.orangeButton} onClick={() => setPage("partners")}>
         Un Besoin une envie ? Pensez à nos partenaires
       </button>
 
