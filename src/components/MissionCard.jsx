@@ -1,6 +1,7 @@
 import { styles } from "../styles/styles.js";
 import { useState } from "react";
 import { formatTimeSlot } from "../utils/dateUtils.js";
+import { useNotify } from "../contexts/NotifyContext.jsx";
 
 export default function MissionCard({
   mission,
@@ -14,6 +15,7 @@ export default function MissionCard({
   onAdminAssign,
   onAdminUnassign,
 }) {
+  const { confirm: confirmModal } = useNotify();
   const isAssigned = mission.assigned.some((a) => a.name === currentUser.name);
   const hasSkill = currentUser.skills.includes(mission.requiredSkill);
   const full = mission.assigned.length >= mission.need;
@@ -97,7 +99,10 @@ export default function MissionCard({
               </span>
               {canManage && (
                 <button
-                  onClick={() => onAdminUnassign(a.name)}
+                  onClick={async () => {
+                    const ok = await confirmModal(`Désinscrire ${a.name} de cette mission ?`);
+                    if (ok) onAdminUnassign(a.name);
+                  }}
                   style={unassignBtnStyle}
                   title={`Désinscrire ${a.name}`}
                 >
