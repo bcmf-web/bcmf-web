@@ -21,6 +21,8 @@ export default function EventPage({
   onDeleteMission,
   onUpdateEvent,
   onUpdateMission,
+  onAdminAssign,
+  onAdminUnassign,
 }) {
   const { toast } = useNotify();
   const manageAllowed = canManageEvent(currentUser, event);
@@ -33,10 +35,14 @@ export default function EventPage({
     teams: event.teamsList || [],
   });
   const [allTeams, setAllTeams] = useState([]);
+  const [approvedUsers, setApprovedUsers] = useState([]);
 
   useEffect(() => {
     supabase.from("teams").select("*").eq("active", true).order("name")
       .then(({ data }) => setAllTeams(data || []));
+
+    supabase.from("users").select("id, name, skills").eq("status", "approved").order("name")
+      .then(({ data }) => setApprovedUsers(data || []));
   }, []);
 
   const canSeePlanning = ["admin", "referent"].includes(currentUser.role);
@@ -269,11 +275,14 @@ export default function EventPage({
               key={mission.id}
               mission={mission}
               currentUser={currentUser}
+              approvedUsers={approvedUsers}
               onTakeMission={(slotStart, slotEnd) => onTakeMission(event.id, mission.id, slotStart, slotEnd)}
               onCancelMission={() => onCancelMission(event.id, mission.id)}
               canManage={manageAllowed}
               onDeleteMission={() => onDeleteMission(event.id, mission.id)}
               onUpdateMission={(updated) => onUpdateMission(event.id, mission.id, updated)}
+              onAdminAssign={(userName, slotStart, slotEnd) => onAdminAssign(event.id, mission.id, userName, slotStart, slotEnd)}
+              onAdminUnassign={(userName) => onAdminUnassign(event.id, mission.id, userName)}
             />
           ))}
         </div>

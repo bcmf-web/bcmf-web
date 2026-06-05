@@ -5,11 +5,14 @@ import { formatTimeSlot } from "../utils/dateUtils.js";
 export default function MissionCard({
   mission,
   currentUser,
+  approvedUsers = [],
   onTakeMission,
   onCancelMission,
   onDeleteMission,
   canManage,
   onUpdateMission,
+  onAdminAssign,
+  onAdminUnassign,
 }) {
   const isAssigned = mission.assigned.some((a) => a.name === currentUser.name);
   const hasSkill = currentUser.skills.includes(mission.requiredSkill);
@@ -18,6 +21,17 @@ export default function MissionCard({
   const [showSlotPicker, setShowSlotPicker] = useState(false);
   const [slotStart, setSlotStart] = useState(mission.timeStart?.slice(0, 5) || "");
   const [slotEnd, setSlotEnd] = useState(mission.timeEnd?.slice(0, 5) || "");
+
+  // Pour l'inscription admin
+  const [selectedUser, setSelectedUser] = useState("");
+  const [adminSlotStart, setAdminSlotStart] = useState(mission.timeStart?.slice(0, 5) || "");
+  const [adminSlotEnd, setAdminSlotEnd] = useState(mission.timeEnd?.slice(0, 5) || "");
+
+  // Bénévoles habilités et non encore inscrits
+  const availableUsers = approvedUsers.filter(
+    (u) => u.skills?.includes(mission.requiredSkill) &&
+           !mission.assigned.some((a) => a.name === u.name)
+  );
 
   const [editMission, setEditMission] = useState({
     name: mission.name,
@@ -72,12 +86,23 @@ export default function MissionCard({
       <div style={styles.assignedList}>
         {mission.assigned.length ? (
           mission.assigned.map((a, i) => (
-            <div key={i} style={{ marginBottom: 4 }}>
-              👤 <strong>{a.name}</strong>
-              {a.slotStart && a.slotEnd && (
-                <span style={{ color: "#16a34a", marginLeft: 8, fontSize: 13 }}>
-                  {formatTimeSlot(a.slotStart)} → {formatTimeSlot(a.slotEnd)}
-                </span>
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <span>
+                👤 <strong>{a.name}</strong>
+                {a.slotStart && a.slotEnd && (
+                  <span style={{ color: "#16a34a", marginLeft: 8, fontSize: 13 }}>
+                    {formatTimeSlot(a.slotStart)} → {formatTimeSlot(a.slotEnd)}
+                  </span>
+                )}
+              </span>
+              {canManage && (
+                <button
+                  onClick={() => onAdminUnassign(a.name)}
+                  style={unassignBtnStyle}
+                  title={`Désinscrire ${a.name}`}
+                >
+                  ✕
+                </button>
               )}
             </div>
           ))
@@ -85,6 +110,68 @@ export default function MissionCard({
           "Personne pour l'instant"
         )}
       </div>
+
+      {/* Section inscription admin */}
+      {canManage && (
+        <div style={adminSectionStyle}>
+          <p style={{ margin: "0 0 8px", fontWeight: "bold", fontSize: 13, color: "#14532d" }}>
+            Inscrire un bénévole
+          </p>
+
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            style={{ ...styles.input, marginBottom: 8 }}
+          >
+            <option value="">— Choisir un bénévole habilité —</option>
+            {availableUsers.map((u) => (
+              <option key={u.id} value={u.name}>{u.name}</option>
+            ))}
+          </select>
+
+          {mission.timeStart && mission.timeEnd && selectedUser && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12 }}>De</label>
+                <input
+                  type="time"
+                  value={adminSlotStart}
+                  min={mission.timeStart?.slice(0, 5)}
+                  max={mission.timeEnd?.slice(0, 5)}
+                  onChange={(e) => setAdminSlotStart(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12 }}>À</label>
+                <input
+                  type="time"
+                  value={adminSlotEnd}
+                  min={adminSlotStart}
+                  max={mission.timeEnd?.slice(0, 5)}
+                  onChange={(e) => setAdminSlotEnd(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            style={selectedUser ? styles.orangeButton : styles.disabledButton}
+            disabled={!selectedUser}
+            onClick={() => {
+              onAdminAssign(
+                selectedUser,
+                mission.timeStart ? adminSlotStart : null,
+                mission.timeStart ? adminSlotEnd : null,
+              );
+              setSelectedUser("");
+            }}
+          >
+            Inscrire
+          </button>
+        </div>
+      )}
 
       {/* Sélecteur de créneau */}
       {showSlotPicker && (
@@ -237,4 +324,24 @@ const slotPickerStyle = {
   padding: 16,
   marginTop: 12,
   marginBottom: 8,
+};
+
+const adminSectionStyle = {
+  background: "#f0fdf4",
+  border: "1px solid #86efac",
+  borderRadius: 14,
+  padding: 14,
+  marginTop: 12,
+};
+
+const unassignBtnStyle = {
+  background: "transparent",
+  border: "none",
+  color: "#dc2626",
+  cursor: "pointer",
+  fontWeight: "bold",
+  fontSize: 14,
+  padding: "2px 6px",
+  borderRadius: 6,
+  lineHeight: 1,
 };

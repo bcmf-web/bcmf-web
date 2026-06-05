@@ -499,6 +499,84 @@ export default function App() {
     toast("Désinscription effectuée", "success");
   }
 
+  // Admin inscrit un bénévole sur une mission
+  async function adminAssignMission(eventId, missionId, userName, slotStart, slotEnd) {
+    const event = events.find((e) => e.id === eventId);
+    const mission = event.missions.find((m) => m.id === missionId);
+
+    if (mission.assigned.some((a) => a.name === userName)) {
+      toast(`${userName} est déjà inscrit sur cette mission.`, "info");
+      return;
+    }
+
+    if (mission.assigned.length >= mission.need) {
+      toast("Mission complète.", "info");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("assignments")
+      .insert([{
+        mission_id: missionId,
+        user_name: userName,
+        slot_start: slotStart || null,
+        slot_end: slotEnd || null,
+      }]);
+
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
+
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          missions: e.missions.map((m) => {
+            if (m.id !== missionId) return m;
+            return {
+              ...m,
+              assigned: [...m.assigned, { name: userName, slotStart, slotEnd }],
+            };
+          }),
+        };
+      })
+    );
+    toast(`${userName} inscrit sur la mission !`, "success");
+  }
+
+  // Admin désinscrit n'importe quel bénévole d'une mission
+  async function adminUnassignMission(eventId, missionId, userName) {
+    const { error } = await supabase
+      .from("assignments")
+      .delete()
+      .eq("mission_id", missionId)
+      .eq("user_name", userName);
+
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
+
+    setEvents((prev) =>
+      prev.map((e) => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          missions: e.missions.map((m) => {
+            if (m.id !== missionId) return m;
+            return {
+              ...m,
+              assigned: m.assigned.filter((a) => a.name !== userName),
+            };
+          }),
+        };
+      })
+    );
+    toast(`${userName} désinscrit de la mission.`, "success");
+  }
+
   if (!session) {
     return <LoginPage onLogin={() => {}} />;
   }
@@ -621,6 +699,8 @@ export default function App() {
           onDeleteMission={deleteMission}
           onUpdateEvent={updateEvent}
           onUpdateMission={updateMission}
+          onAdminAssign={adminAssignMission}
+          onAdminUnassign={adminUnassignMission}
         />
       </div>
     );
