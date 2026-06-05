@@ -4,6 +4,7 @@ import MissionCard from "../components/MissionCard.jsx";
 import { styles } from "../styles/styles.js";
 import { canManageEvent } from "../services/permissions.js";
 import { skills } from "../data/InitialData.js";
+import { useNotify } from "../contexts/NotifyContext.jsx";
 
 export default function EventPage({
   event,
@@ -18,8 +19,9 @@ export default function EventPage({
   onUpdateEvent,
   onUpdateMission,
 }) {
+  const { toast } = useNotify();
   const manageAllowed = canManageEvent(currentUser, event);
-  
+
   const [editEvent, setEditEvent] = useState({
    title: event.title,
    date: event.date,
@@ -47,8 +49,7 @@ export default function EventPage({
   }
   
   function submitEventUpdate() {
-	onUpdateEvent(event.id, editEvent);
-	alert("Événement mis à jour");
+    onUpdateEvent(event.id, editEvent);
   }
 
   return (
@@ -104,6 +105,7 @@ export default function EventPage({
 			/>
 
 			<input
+			  type="date"
 			  value={editEvent.date}
 			  onChange={(e) =>
 				setEditEvent({ ...editEvent, date: e.target.value })
@@ -112,6 +114,7 @@ export default function EventPage({
 			/>
 
 			<input
+			  type="time"
 			  value={editEvent.time}
 			  onChange={(e) =>
 				setEditEvent({ ...editEvent, time: e.target.value })

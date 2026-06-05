@@ -8,9 +8,10 @@ import { styles } from "./styles/styles.js";
 import LoginPage from "./pages/LoginPage.jsx";
 import PartnersPage from "./pages/PartnersPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import { useNotify } from "./contexts/NotifyContext.jsx";
 
 export default function App() {
- 
+  const { toast, confirm: confirmModal } = useNotify();
 
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -19,121 +20,109 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [showProfile, setShowProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
-	  first_name: "",
-	  last_name: "",
-	  phone: "",
-	});
-	
-	if (window.location.pathname === "/reset-password") {
-	  return <ResetPasswordPage />;
-	}	
-	  
- useEffect(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    setSession(data.session);
+    first_name: "",
+    last_name: "",
+    phone: "",
   });
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setSession(session);
-  });
+  if (window.location.pathname === "/reset-password") {
+    return <ResetPasswordPage />;
+  }
 
-  return () => subscription.unsubscribe();
-}, []);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+    });
 
-useEffect(() => {
-  async function loadProfile() {
-    if (!session?.user?.id) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
+    return () => subscription.unsubscribe();
+  }, []);
 
-    if (error) {
-      console.error("Erreur profil:", error);
-      return;
+  useEffect(() => {
+    async function loadProfile() {
+      if (!session?.user?.id) return;
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      if (error) {
+        console.error("Erreur profil:", error);
+        return;
+      }
+
+      setProfile(data);
     }
 
-    setProfile(data);
-  }
+    loadProfile();
+  }, [session]);
 
-  loadProfile();
-}, [session]);
+  useEffect(() => {
+    if (profile) {
+      setProfileForm({
+        first_name: profile.first_name || "",
+        last_name: profile.last_name || "",
+        phone: profile.phone || "",
+      });
+    }
+  }, [profile]);
 
-useEffect(() => {
-  if (profile) {
-    setProfileForm({
-      first_name: profile.first_name || "",
-      last_name: profile.last_name || "",
-      phone: profile.phone || "",
-    });
-  }
-}, [profile]);
-  
- useEffect(() => {
-	 
-	async function loadEvents() {
-	  const { data, error } = await supabase
-		.from("events")
-		.select(`
-		  *,
-		  event_teams (
-			teams (
-			  id,
-			  name
-			)
-		  ),
-		  missions (
-			id,
-			name,
-			need,
-			required_skill,
-			assignments (
-			  id,
-			  user_name
-			)
-		  )
-		`);
+  useEffect(() => {
+    async function loadEvents() {
+      const { data, error } = await supabase
+        .from("events")
+        .select(`
+          *,
+          event_teams (
+            teams (
+              id,
+              name
+            )
+          ),
+          missions (
+            id,
+            name,
+            need,
+            required_skill,
+            assignments (
+              id,
+              user_name
+            )
+          )
+        `);
 
-	  console.log("SUPABASE DATA:", data);
-	  console.log("SUPABASE ERROR:", error);
+      if (error) {
+        toast("Erreur de chargement des événements : " + error.message, "error");
+        return;
+      }
 
-	  if (error) {
-		alert("Erreur Supabase : " + error.message);
-		return;
-	  }
+      const formatted = data.map((event) => ({
+        ...event,
+        teamsList: event.event_teams?.map((et) => et.teams) || [],
+        missions: event.missions.map((mission) => ({
+          id: mission.id,
+          name: mission.name,
+          need: mission.need,
+          requiredSkill: mission.required_skill,
+          assigned: mission.assignments.map((a) => a.user_name),
+        })),
+      }));
 
-	  const formatted = data.map((event) => ({
-		...event,
+      setEvents(formatted);
+    }
 
-		teamsList: event.event_teams?.map((et) => et.teams) || [],
-
-		missions: event.missions.map((mission) => ({
-		  id: mission.id,
-		  name: mission.name,
-		  need: mission.need,
-		  requiredSkill: mission.required_skill,
-		  assigned: mission.assignments.map((a) => a.user_name),
-		})),
-	  }));
-
-	  setEvents(formatted);
-	}
-
-  loadEvents();
- }, []);
-
-  //useEffect(() => {
-    //localStorage.setItem("bcmf_events", JSON.stringify(events));
-  //}, [events]);
+    loadEvents();
+  }, []);
 
   const currentUser = profile;
   const selectedEvent = events.find((e) => e.id === selectedEventId);
-
-
 
   function eventCoverage(event) {
     const total = event.missions.reduce((sum, mission) => sum + mission.need, 0);
@@ -141,343 +130,326 @@ useEffect(() => {
       (sum, mission) => sum + mission.assigned.length,
       0
     );
-
     return total === 0 ? 0 : Math.round((assigned / total) * 100);
   }
 
-	async function addEvent(newEvent) {
-	  if (!newEvent.teams || newEvent.teams.length === 0) {
-		alert("Merci de sélectionner au moins une équipe.");
-		return;
-	  }
+  async function addEvent(newEvent) {
+    if (!newEvent.teams || newEvent.teams.length === 0) {
+      toast("Merci de sélectionner au moins une équipe.", "warning");
+      return;
+    }
 
-	  const firstTeam = newEvent.teams[0];
+    const firstTeam = newEvent.teams[0];
 
-	  const { data, error } = await supabase
-		.from("events")
-		.insert([
-		  {
-			title: newEvent.title,
-			team: firstTeam.name,
-			category: newEvent.category,
-			date: newEvent.date,
-			time: newEvent.time,
-			place: newEvent.place,
-		  },
-		])
-		.select();
+    const { data, error } = await supabase
+      .from("events")
+      .insert([
+        {
+          title: newEvent.title,
+          team: firstTeam.name,
+          category: newEvent.category,
+          date: newEvent.date,
+          time: newEvent.time,
+          place: newEvent.place,
+        },
+      ])
+      .select();
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  const createdEvent = {
-		...data[0],
-		teamsList: newEvent.teams,
-		missions: [],
-	  };
+    const createdEvent = {
+      ...data[0],
+      teamsList: newEvent.teams,
+      missions: [],
+    };
 
-	  const eventTeams = newEvent.teams.map((team) => ({
-		event_id: data[0].id,
-		team_id: team.id,
-	  }));
+    const eventTeams = newEvent.teams.map((team) => ({
+      event_id: data[0].id,
+      team_id: team.id,
+    }));
 
-	  const { error: teamsError } = await supabase
-		.from("event_teams")
-		.insert(eventTeams);
+    const { error: teamsError } = await supabase
+      .from("event_teams")
+      .insert(eventTeams);
 
-	  if (teamsError) {
-		alert(teamsError.message);
-		return;
-	  }
+    if (teamsError) {
+      toast(teamsError.message, "error");
+      return;
+    }
 
-	  setEvents((prev) => [...prev, createdEvent]);
-	}
-	
-	async function updateEvent(eventId, updatedEvent) {
-	  const { error } = await supabase
-		.from("events")
-		.update({
-		  title: updatedEvent.title,
-		  date: updatedEvent.date,
-		  time: updatedEvent.time,
-		  place: updatedEvent.place,
-		})
-		.eq("id", eventId);
+    setEvents((prev) => [...prev, createdEvent]);
+    toast("Événement créé avec succès !", "success");
+  }
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+  async function updateEvent(eventId, updatedEvent) {
+    const { error } = await supabase
+      .from("events")
+      .update({
+        title: updatedEvent.title,
+        date: updatedEvent.date,
+        time: updatedEvent.time,
+        place: updatedEvent.place,
+      })
+      .eq("id", eventId);
 
-	  setEvents((prev) =>
-		prev.map((event) => {
-		  if (event.id !== eventId) return event;
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-		  return {
-			...event,
-			title: updatedEvent.title,
-			date: updatedEvent.date,
-			time: updatedEvent.time,
-			place: updatedEvent.place,
-		  };
-		})
-	  );
-	}
+    setEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event;
+        return {
+          ...event,
+          title: updatedEvent.title,
+          date: updatedEvent.date,
+          time: updatedEvent.time,
+          place: updatedEvent.place,
+        };
+      })
+    );
+    toast("Événement mis à jour", "success");
+  }
 
-	async function updateMyProfile() {
-	  const { error } = await supabase
-		.from("users")
-		.update({
-		  first_name: profileForm.first_name,
-		  last_name: profileForm.last_name,
-		  name: `${profileForm.first_name} ${profileForm.last_name}`,
-		  phone: profileForm.phone,
-		})
-		.eq("id", currentUser.id);
+  async function updateMyProfile() {
+    const { error } = await supabase
+      .from("users")
+      .update({
+        first_name: profileForm.first_name,
+        last_name: profileForm.last_name,
+        name: `${profileForm.first_name} ${profileForm.last_name}`,
+        phone: profileForm.phone,
+      })
+      .eq("id", currentUser.id);
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  const { data, error: reloadError } = await supabase
-		.from("users")
-		.select("*")
-		.eq("id", currentUser.id)
-		.single();
+    const { data, error: reloadError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", currentUser.id)
+      .single();
 
-	  if (reloadError) {
-		alert(reloadError.message);
-		return;
-	  }
+    if (reloadError) {
+      toast(reloadError.message, "error");
+      return;
+    }
 
-	  setProfile(data);
-	  setShowProfile(false);
-	  alert("Profil mis à jour");
-	}
+    setProfile(data);
+    setShowProfile(false);
+    toast("Profil mis à jour", "success");
+  }
 
   async function addMissionToEvent(eventId, newMission) {
-	  const { data, error } = await supabase
-		.from("missions")
-		.insert([
-		  {
-			event_id: eventId,
-			name: newMission.name,
-			need: Number(newMission.need),
-			required_skill: newMission.requiredSkill,
-		  },
-		])
-		.select();
+    const { data, error } = await supabase
+      .from("missions")
+      .insert([
+        {
+          event_id: eventId,
+          name: newMission.name,
+          need: Number(newMission.need),
+          required_skill: newMission.requiredSkill,
+        },
+      ])
+      .select();
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  const createdMission = {
-		id: data[0].id,
-		name: data[0].name,
-		need: data[0].need,
-		requiredSkill: data[0].required_skill,
-		assigned: [],
-	  };
+    const createdMission = {
+      id: data[0].id,
+      name: data[0].name,
+      need: data[0].need,
+      requiredSkill: data[0].required_skill,
+      assigned: [],
+    };
 
-	  setEvents((prev) =>
-		prev.map((event) =>
-		  event.id === eventId
-			? { ...event, missions: [...event.missions, createdMission] }
-			: event
-		)
-	  );
-	}
-  
-	async function deleteEvent(eventId) {
-	  if (!confirm("Supprimer cet événement ?")) return;
+    setEvents((prev) =>
+      prev.map((event) =>
+        event.id === eventId
+          ? { ...event, missions: [...event.missions, createdMission] }
+          : event
+      )
+    );
+    toast("Mission ajoutée", "success");
+  }
 
-	  const { error } = await supabase
-		.from("events")
-		.delete()
-		.eq("id", eventId);
+  async function deleteEvent(eventId) {
+    const ok = await confirmModal("Supprimer cet événement ?");
+    if (!ok) return;
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId);
 
-	  setEvents((prev) =>
-		prev.filter((event) => event.id !== eventId)
-	  );
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  setSelectedEventId(null);
-	}
+    setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    setSelectedEventId(null);
+    toast("Événement supprimé", "success");
+  }
 
-	async function deleteMission(eventId, missionId) {
-	  if (!confirm("Supprimer cette mission ?")) return;
+  async function deleteMission(eventId, missionId) {
+    const ok = await confirmModal("Supprimer cette mission ?");
+    if (!ok) return;
 
-	  const { error } = await supabase
-		.from("missions")
-		.delete()
-		.eq("id", missionId);
+    const { error } = await supabase
+      .from("missions")
+      .delete()
+      .eq("id", missionId);
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  setEvents((prev) =>
-		prev.map((event) => {
-		  if (event.id !== eventId) return event;
+    setEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event;
+        return {
+          ...event,
+          missions: event.missions.filter((mission) => mission.id !== missionId),
+        };
+      })
+    );
+    toast("Mission supprimée", "success");
+  }
 
-		  return {
-			...event,
-			missions: event.missions.filter(
-			  (mission) => mission.id !== missionId
-			),
-		  };
-		})
-	  );
-	}
+  async function updateMission(eventId, missionId, updatedMission) {
+    const { error } = await supabase
+      .from("missions")
+      .update({
+        name: updatedMission.name,
+        need: Number(updatedMission.need),
+        required_skill: updatedMission.requiredSkill,
+      })
+      .eq("id", missionId);
 
-	async function updateMission(eventId, missionId, updatedMission) {
-	  const { error } = await supabase
-		.from("missions")
-		.update({
-		  name: updatedMission.name,
-		  need: Number(updatedMission.need),
-		  required_skill: updatedMission.requiredSkill,
-		})
-		.eq("id", missionId);
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    setEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event;
+        return {
+          ...event,
+          missions: event.missions.map((mission) => {
+            if (mission.id !== missionId) return mission;
+            return {
+              ...mission,
+              name: updatedMission.name,
+              need: Number(updatedMission.need),
+              requiredSkill: updatedMission.requiredSkill,
+            };
+          }),
+        };
+      })
+    );
+    toast("Mission mise à jour", "success");
+  }
 
-	  setEvents((prev) =>
-		prev.map((event) => {
-		  if (event.id !== eventId) return event;
+  async function takeMission(eventId, missionId) {
+    if (currentUser.status !== "approved") {
+      toast("Ton compte n'est pas encore validé.", "warning");
+      return;
+    }
 
-		  return {
-			...event,
-			missions: event.missions.map((mission) => {
-			  if (mission.id !== missionId) return mission;
+    const event = events.find((e) => e.id === eventId);
+    const mission = event.missions.find((m) => m.id === missionId);
 
-			  return {
-				...mission,
-				name: updatedMission.name,
-				need: Number(updatedMission.need),
-				requiredSkill: updatedMission.requiredSkill,
-			  };
-			}),
-		  };
-		})
-	  );
-	}
+    if (!currentUser.skills.includes(mission.requiredSkill)) {
+      toast("Habilitation requise : " + mission.requiredSkill, "warning");
+      return;
+    }
 
-	async function takeMission(eventId, missionId) {
-	  if (currentUser.status !== "approved") {
-		alert("Ton compte n'est pas validé.");
-		return;
-	  }
-	  
-	  
+    if (mission.assigned.includes(currentUser.name)) {
+      toast("Tu es déjà inscrit sur cette mission.", "info");
+      return;
+    }
 
-	  const event = events.find((e) => e.id === eventId);
-	  const mission = event.missions.find((m) => m.id === missionId);
+    if (mission.assigned.length >= mission.need) {
+      toast("Mission complète.", "info");
+      return;
+    }
 
-	  if (!currentUser.skills.includes(mission.requiredSkill)) {
-		alert("Habilitation requise : " + mission.requiredSkill);
-		return;
-	  }
+    const { error } = await supabase
+      .from("assignments")
+      .insert([{ mission_id: missionId, user_name: currentUser.name }]);
 
-	  if (mission.assigned.includes(currentUser.name)) {
-		alert("Tu es déjà inscrit sur cette mission.");
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  if (mission.assigned.length >= mission.need) {
-		alert("Mission complète.");
-		return;
-	  }
+    setEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event;
+        return {
+          ...event,
+          missions: event.missions.map((mission) => {
+            if (mission.id !== missionId) return mission;
+            return {
+              ...mission,
+              assigned: [...mission.assigned, currentUser.name],
+            };
+          }),
+        };
+      })
+    );
+    toast("Inscription confirmée !", "success");
+  }
 
-	  const { error } = await supabase
-		.from("assignments")
-		.insert([
-		  {
-			mission_id: missionId,
-			user_name: currentUser.name,
-		  },
-		]);
+  async function cancelMission(eventId, missionId) {
+    const { error } = await supabase
+      .from("assignments")
+      .delete()
+      .eq("mission_id", missionId)
+      .eq("user_name", currentUser.name);
 
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
+    if (error) {
+      toast(error.message, "error");
+      return;
+    }
 
-	  setEvents((prev) =>
-		prev.map((event) => {
-		  if (event.id !== eventId) return event;
-
-		  return {
-			...event,
-			missions: event.missions.map((mission) => {
-			  if (mission.id !== missionId) return mission;
-
-			  return {
-				...mission,
-				assigned: [...mission.assigned, currentUser.name],
-			  };
-			}),
-		  };
-		})
-	  );
-	}
-
-	async function cancelMission(eventId, missionId) {
-	  const { error } = await supabase
-		.from("assignments")
-		.delete()
-		.eq("mission_id", missionId)
-		.eq("user_name", currentUser.name);
-
-	  if (error) {
-		alert(error.message);
-		return;
-	  }
-
-	  setEvents((prev) =>
-		prev.map((event) => {
-		  if (event.id !== eventId) return event;
-
-		  return {
-			...event,
-			missions: event.missions.map((mission) => {
-			  if (mission.id !== missionId) return mission;
-
-			  return {
-				...mission,
-				assigned: mission.assigned.filter(
-				  (name) => name !== currentUser.name
-				),
-			  };
-			}),
-		  };
-		})
-	  );
-	}
+    setEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event;
+        return {
+          ...event,
+          missions: event.missions.map((mission) => {
+            if (mission.id !== missionId) return mission;
+            return {
+              ...mission,
+              assigned: mission.assigned.filter((name) => name !== currentUser.name),
+            };
+          }),
+        };
+      })
+    );
+    toast("Désinscription effectuée", "success");
+  }
 
   if (!session) {
     return <LoginPage onLogin={() => {}} />;
   }
 
   if (!currentUser) {
-    return (
-      <div style={styles.page}>
-        Chargement du profil...
-      </div>
-    );
+    return <div style={styles.page}>Chargement du profil...</div>;
   }
 
   if (currentUser.status !== "approved") {
@@ -492,124 +464,96 @@ useEffect(() => {
       </div>
     );
   }
-  
-const visibleEvents =
-  currentUser.role === "admin"
-    ? events
-    : currentUser.role === "referent"
-    ? events.filter((e) => e.team === currentUser.team)
-    : events;
 
-const profileModal = showProfile && (
-  <div style={modalStyles.overlay}>
-    <div style={modalStyles.modal}>
-      <h2 style={{ marginTop: 0, color: "#14532d" }}>Mon profil</h2>
+  const visibleEvents =
+    currentUser.role === "admin"
+      ? events
+      : currentUser.role === "referent"
+      ? events.filter((e) => e.team === currentUser.team)
+      : events;
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <div>
-          <label>Prénom</label>
-          <input
-            value={profileForm.first_name}
-            onChange={(e) =>
-              setProfileForm({
-                ...profileForm,
-                first_name: e.target.value,
-              })
-            }
-            style={styles.input}
-          />
+  const profileModal = showProfile && (
+    <div style={modalStyles.overlay}>
+      <div style={modalStyles.modal}>
+        <h2 style={{ marginTop: 0, color: "#14532d" }}>Mon profil</h2>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <label>Prénom</label>
+            <input
+              value={profileForm.first_name}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, first_name: e.target.value })
+              }
+              style={styles.input}
+            />
+          </div>
+
+          <div>
+            <label>Nom</label>
+            <input
+              value={profileForm.last_name}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, last_name: e.target.value })
+              }
+              style={styles.input}
+            />
+          </div>
+
+          <div>
+            <label>Email</label>
+            <input value={currentUser.email} disabled style={styles.input} />
+          </div>
+
+          <div>
+            <label>Téléphone</label>
+            <input
+              value={profileForm.phone}
+              onChange={(e) =>
+                setProfileForm({ ...profileForm, phone: e.target.value })
+              }
+              style={styles.input}
+            />
+          </div>
         </div>
 
-        <div>
-          <label>Nom</label>
-          <input
-            value={profileForm.last_name}
-            onChange={(e) =>
-              setProfileForm({
-                ...profileForm,
-                last_name: e.target.value,
-              })
-            }
-            style={styles.input}
-          />
-        </div>
-
-        <div>
-          <label>Email</label>
-          <input value={currentUser.email} disabled style={styles.input} />
-        </div>
-
-        <div>
-          <label>Téléphone</label>
-          <input
-            value={profileForm.phone}
-            onChange={(e) =>
-              setProfileForm({
-                ...profileForm,
-                phone: e.target.value,
-              })
-            }
-            style={styles.input}
-          />
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button style={styles.orangeButton} onClick={updateMyProfile}>
+            Enregistrer
+          </button>
+          <button style={styles.darkButton} onClick={() => setShowProfile(false)}>
+            Annuler
+          </button>
         </div>
       </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-        <button style={styles.orangeButton} onClick={updateMyProfile}>
-          Enregistrer
-        </button>
-
-        <button style={styles.darkButton} onClick={() => setShowProfile(false)}>
-          Annuler
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-if (page === "admin-users") {
-  return (
-    <div style={styles.page}>
-      <Header
-		  currentUser={currentUser}
-		  onProfileClick={() => setShowProfile(true)}
-		/>
-		 {profileModal}
-
-      <AdminUsersPage
-        currentUser={currentUser}
-        onBack={() => setPage("dashboard")}
-      />
     </div>
   );
-}
-  if (page === "partners") {
-	  return (
-		<div style={styles.page}>
-		  <Header
-			  currentUser={currentUser}
-			  onProfileClick={() => setShowProfile(true)}
-			/>
-			
-			 {profileModal}
 
-		  <PartnersPage
-			currentUser={currentUser}
-			onBack={() => setPage("dashboard")}
-		  />
-		</div>
-	  );
-	}
+  if (page === "admin-users") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        {profileModal}
+        <AdminUsersPage currentUser={currentUser} onBack={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
+  if (page === "partners") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        {profileModal}
+        <PartnersPage currentUser={currentUser} onBack={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
   if (selectedEvent) {
     return (
       <div style={styles.page}>
-        <Header
-		  currentUser={currentUser}
-		  onProfileClick={() => setShowProfile(true)}
-		/>
-		
-		 {profileModal}
-
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        {profileModal}
         <EventPage
           event={selectedEvent}
           currentUser={currentUser}
@@ -625,63 +569,52 @@ if (page === "admin-users") {
         />
       </div>
     );
-	
   }
-  
-  
 
-return (
-  <div style={styles.page}>
-    <Header
-	  currentUser={currentUser}
-	  onProfileClick={() => setShowProfile(true)}
-	/>
-	
-	 {profileModal}
-	
-	<div
-      style={{
-        background: "#fff8e1",
-        border: "1px solid #facc15",
-        color: "#92400e",
-        padding: "15px",
-        borderRadius: "12px",
-        marginTop: "15px",
-        marginBottom: "15px",
-        fontWeight: "bold",
-      }}
-    >
-      ⚠️ BCMF Flow – Bêta v0.1-beta
-      <br />
-      Cette application est actuellement en phase de test.
-      Merci de remonter toute anomalie ou suggestion d'amélioration.
-    </div>
-	<button
-	  style={styles.orangeButton}
-	  onClick={() => setPage("partners")}
-	>
-	  Un Besoin une envie ? Pensez à nos partenaires
-	</button>
-	
-    {currentUser.role === "admin" && (
-      <button
-        style={styles.orangeButton}
-        onClick={() => setPage("admin-users")}
+  return (
+    <div style={styles.page}>
+      <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+      {profileModal}
+
+      <div
+        style={{
+          background: "#fff8e1",
+          border: "1px solid #facc15",
+          color: "#92400e",
+          padding: "15px",
+          borderRadius: "12px",
+          marginTop: "15px",
+          marginBottom: "15px",
+          fontWeight: "bold",
+        }}
       >
-        Administration utilisateurs
-      </button>
-    )}
+        ⚠️ BCMF Flow – Bêta v0.2.0-beta
+        <br />
+        Cette application est actuellement en phase de test.
+        Merci de remonter toute anomalie ou suggestion d'amélioration.
+      </div>
 
-    <DashboardPage
-      currentUser={currentUser}
-      visibleEvents={visibleEvents}
-      eventCoverage={eventCoverage}
-      onOpenEvent={setSelectedEventId}
-      onAddEvent={addEvent}
-    />
-  </div>
-);
+      <button style={styles.orangeButton} onClick={() => setPage("partners")}>
+        Un Besoin une envie ? Pensez à nos partenaires
+      </button>
+
+      {currentUser.role === "admin" && (
+        <button style={styles.orangeButton} onClick={() => setPage("admin-users")}>
+          Administration utilisateurs
+        </button>
+      )}
+
+      <DashboardPage
+        currentUser={currentUser}
+        visibleEvents={visibleEvents}
+        eventCoverage={eventCoverage}
+        onOpenEvent={setSelectedEventId}
+        onAddEvent={addEvent}
+      />
+    </div>
+  );
 }
+
 const modalStyles = {
   overlay: {
     position: "fixed",
@@ -693,7 +626,6 @@ const modalStyles = {
     padding: 20,
     zIndex: 999,
   },
-
   modal: {
     width: "100%",
     maxWidth: 460,

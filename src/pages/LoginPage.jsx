@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
+import { useNotify } from "../contexts/NotifyContext.jsx";
 
 export default function LoginPage({ onLogin }) {
+  const { toast } = useNotify();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showSignup, setShowSignup] = useState(false);
@@ -19,7 +21,7 @@ export default function LoginPage({ onLogin }) {
     });
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -28,7 +30,7 @@ export default function LoginPage({ onLogin }) {
   
 	async function resetPassword() {
 	  if (!resetEmail.trim()) {
-		alert("Merci de saisir votre adresse email.");
+		toast("Merci de saisir votre adresse email.", "warning");
 		return;
 	  }
 
@@ -37,14 +39,14 @@ export default function LoginPage({ onLogin }) {
 	  });
 
 	  if (error) {
-		alert(error.message);
+		toast(error.message, "error");
 		return;
 	  }
 
 	  setShowResetPassword(false);
 	  setResetEmail("");
 
-	  alert("Un email de réinitialisation vient de vous être envoyé.");
+	  toast("Un email de réinitialisation vient de vous être envoyé.", "success");
 	}
 
   async function signup() {
@@ -57,17 +59,17 @@ export default function LoginPage({ onLogin }) {
 	  !password.trim() ||
 	  !confirmPassword.trim()
 	) {
-	  alert("Merci de compléter tous les champs.");
+	  toast("Merci de compléter tous les champs.", "warning");
 	  return;
 	}
-	  
+
 	if (password !== confirmPassword) {
-	  alert("Les mots de passe ne correspondent pas");
+	  toast("Les mots de passe ne correspondent pas.", "warning");
 	  return;
 	}
 
 	if (!phone || phone.length < 10) {
-	  alert("Numéro de téléphone invalide");
+	  toast("Numéro de téléphone invalide.", "warning");
 	  return;
 	}
     const { data, error } = await supabase.auth.signUp({
@@ -76,7 +78,7 @@ export default function LoginPage({ onLogin }) {
     });
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -99,7 +101,7 @@ export default function LoginPage({ onLogin }) {
       ]);
 
       if (profileError) {
-        alert("Compte créé, mais erreur profil : " + profileError.message);
+        toast("Compte créé, mais erreur profil : " + profileError.message, "error");
         return;
       }
     }
@@ -110,8 +112,8 @@ export default function LoginPage({ onLogin }) {
 	setEmail("");
 	setPassword("");
 	setConfirmPassword("");
-	
-    alert("Votre compte sera créé aprés validation par le club.");
+
+    toast("Votre compte sera créé après validation par le club.", "info");
 	
   }
 

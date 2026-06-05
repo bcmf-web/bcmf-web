@@ -132,7 +132,7 @@ export default function DashboardPage({
           </select>
 
           <input
-            placeholder="Date"
+            type="date"
             value={newEvent.date}
             onChange={(e) =>
               setNewEvent({ ...newEvent, date: e.target.value })
@@ -141,7 +141,7 @@ export default function DashboardPage({
           />
 
           <input
-            placeholder="Heure"
+            type="time"
             value={newEvent.time}
             onChange={(e) =>
               setNewEvent({ ...newEvent, time: e.target.value })

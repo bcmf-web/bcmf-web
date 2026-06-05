@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { styles } from "../styles/styles.js";
+import { useNotify } from "../contexts/NotifyContext.jsx";
 
 
 
@@ -9,6 +10,7 @@ const statuses = ["pending", "approved", "rejected"];
 
 
 export default function AdminUsersPage({ currentUser, onBack }) {
+  const { toast } = useNotify();
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
@@ -46,7 +48,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -65,7 +67,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
       .eq("id", userId);
 
     if (error) {
-      alert(error.message);
+      toast(error.message, "error");
       return;
     }
 
@@ -122,7 +124,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 		  .eq("team_id", team.id);
 
 		if (error) {
-		  alert(error.message);
+		  toast(error.message, "error");
 		  return;
 		}
 
@@ -147,7 +149,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 		]);
 
 		if (error) {
-		  alert(error.message);
+		  toast(error.message, "error");
 		  return;
 		}
 
