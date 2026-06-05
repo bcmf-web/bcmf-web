@@ -465,7 +465,8 @@ export default function App() {
     );
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const visibleEvents = (
     currentUser.role === "admin"
@@ -473,7 +474,12 @@ export default function App() {
       : currentUser.role === "referent"
       ? events.filter((e) => e.team === currentUser.team)
       : events
-  ).filter((e) => e.date >= today);
+  ).filter((e) => {
+    if (!e.date) return true;
+    const eventDate = new Date(e.date);
+    eventDate.setHours(0, 0, 0, 0);
+    return eventDate >= today;
+  });
 
   const profileModal = showProfile && (
     <div style={modalStyles.overlay}>
