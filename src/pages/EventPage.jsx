@@ -118,13 +118,15 @@ export default function EventPage({
         <p style={styles.eventHeroInfo}>📍 {event.place || "-"}</p>
 
         <Progress value={eventCoverage(event)} />
+      </section>
 
-        {manageAllowed && (
+      {manageAllowed && (
+        <div style={{ marginTop: 12 }}>
           <button onClick={() => onDeleteEvent(event.id)} style={styles.redButton}>
             Supprimer événement
           </button>
-        )}
-      </section>
+        </div>
+      )}
 
       {manageAllowed && (
         <section style={styles.panel}>
