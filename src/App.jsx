@@ -193,6 +193,7 @@ export default function App() {
   }
 
   async function updateEvent(eventId, updatedEvent) {
+    // 1. Mise à jour des champs de l'événement
     const { error } = await supabase
       .from("events")
       .update({
@@ -200,12 +201,39 @@ export default function App() {
         start_datetime: updatedEvent.start_datetime || null,
         end_datetime: updatedEvent.end_datetime || null,
         place: updatedEvent.place,
+        team: updatedEvent.teams?.[0]?.name || null,
       })
       .eq("id", eventId);
 
     if (error) {
       toast(error.message, "error");
       return;
+    }
+
+    // 2. Mise à jour des équipes si fournies
+    if (updatedEvent.teams) {
+      // Supprimer les anciennes liaisons
+      const { error: delError } = await supabase
+        .from("event_teams")
+        .delete()
+        .eq("event_id", eventId);
+
+      if (delError) {
+        toast(delError.message, "error");
+        return;
+      }
+
+      // Insérer les nouvelles
+      if (updatedEvent.teams.length > 0) {
+        const { error: insError } = await supabase
+          .from("event_teams")
+          .insert(updatedEvent.teams.map((t) => ({ event_id: eventId, team_id: t.id })));
+
+        if (insError) {
+          toast(insError.message, "error");
+          return;
+        }
+      }
     }
 
     setEvents((prev) =>
@@ -217,6 +245,8 @@ export default function App() {
           start_datetime: updatedEvent.start_datetime,
           end_datetime: updatedEvent.end_datetime,
           place: updatedEvent.place,
+          teamsList: updatedEvent.teams || event.teamsList,
+          team: updatedEvent.teams?.[0]?.name || event.team,
         };
       })
     );

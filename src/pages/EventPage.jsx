@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Progress from "../components/Progress.jsx";
 import MissionCard from "../components/MissionCard.jsx";
 import { styles } from "../styles/styles.js";
@@ -7,6 +7,7 @@ import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
 import PlanningView from "../components/PlanningView.jsx";
+import { supabase } from "../services/supabaseClient.js";
 
 export default function EventPage({
   event,
@@ -29,7 +30,14 @@ export default function EventPage({
     start_datetime: toInputDatetime(event.start_datetime),
     end_datetime: toInputDatetime(event.end_datetime),
     place: event.place,
+    teams: event.teamsList || [],
   });
+  const [allTeams, setAllTeams] = useState([]);
+
+  useEffect(() => {
+    supabase.from("teams").select("*").eq("active", true).order("name")
+      .then(({ data }) => setAllTeams(data || []));
+  }, []);
 
   const canSeePlanning = ["admin", "referent"].includes(currentUser.role);
   const [viewMode, setViewMode] = useState("liste"); // "liste" | "planning"
@@ -146,6 +154,26 @@ export default function EventPage({
             onChange={(e) => setEditEvent({ ...editEvent, place: e.target.value })}
             style={styles.input}
           />
+
+          <label style={{ fontWeight: "bold" }}>Équipes concernées</label>
+          <div style={styles.checkboxGrid}>
+            {allTeams.map((team) => (
+              <label key={team.id} style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={editEvent.teams.some((t) => t.id === team.id)}
+                  onChange={() => {
+                    const already = editEvent.teams.some((t) => t.id === team.id);
+                    const updated = already
+                      ? editEvent.teams.filter((t) => t.id !== team.id)
+                      : [...editEvent.teams, team];
+                    setEditEvent({ ...editEvent, teams: updated });
+                  }}
+                />
+                {team.name}
+              </label>
+            ))}
+          </div>
 
           <button onClick={submitEventUpdate} style={styles.orangeButton}>
             Enregistrer modifications
