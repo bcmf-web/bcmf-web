@@ -56,11 +56,25 @@ export async function unsubscribeFromPush(userId) {
 
 // Envoyer une notification via l'Edge Function
 export async function sendPushNotification({ userIds, title, body, url }) {
-  const { data, error } = await supabase.functions.invoke("send-push", {
-    body: { user_ids: userIds, title, body, url },
-  });
-  if (error) console.error("Push error:", error);
-  return data;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const res = await fetch(
+      "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/send-push",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ user_ids: userIds, title, body, url }),
+      }
+    );
+    return await res.json();
+  } catch (e) {
+    console.error("Push error:", e);
+  }
 }
 
 // Envoyer à tous les admins
