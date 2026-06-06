@@ -53,7 +53,15 @@ export default function App() {
 
       const { data, error } = await supabase
         .from("users")
-        .select("*")
+        .select(`
+          *,
+          user_teams (
+            teams (
+              id,
+              name
+            )
+          )
+        `)
         .eq("id", session.user.id)
         .single();
 
@@ -62,7 +70,9 @@ export default function App() {
         return;
       }
 
-      setProfile(data);
+      // Construire la liste des équipes du user depuis user_teams
+      const teamsList = data.user_teams?.map((ut) => ut.teams) || [];
+      setProfile({ ...data, teamsList });
     }
 
     loadProfile();
@@ -602,11 +612,16 @@ export default function App() {
     );
   }
 
+  const userTeamNames = (currentUser.teamsList || []).map((t) => t.name);
+
   const visibleEvents =
     currentUser.role === "admin"
       ? events
-      : currentUser.role === "referent"
-      ? events.filter((e) => e.team === currentUser.team)
+      : currentUser.role === "referent" && userTeamNames.length > 0
+      ? events.filter((e) =>
+          e.teamsList?.some((t) => userTeamNames.includes(t.name)) ||
+          userTeamNames.includes(e.team)
+        )
       : events;
 
   const profileModal = showProfile && (
