@@ -57,7 +57,7 @@ export async function unsubscribeFromPush(userId) {
 // Envoyer une notification via l'Edge Function
 export async function sendPushNotification({ userIds, title, body, url }) {
   try {
-    console.log("[Push] sendPushNotification appelé", { userIds, title });
+    console.log("[Push] sendPushNotification appelé", { userIds: JSON.stringify(userIds), title });
 
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
