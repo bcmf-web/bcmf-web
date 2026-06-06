@@ -461,8 +461,8 @@ export default function App() {
       return;
     }
 
-    // Vérifier les conflits horaires avec les autres inscriptions du bénévole
-    if (slotStart && slotEnd) {
+    // Vérifier les conflits horaires — sauf pour admin et référent
+    if (slotStart && slotEnd && currentUser.role === "benevole") {
       for (const ev of events) {
         for (const m of ev.missions) {
           if (m.id === missionId) continue;
