@@ -623,6 +623,23 @@ export default function App() {
       })
     );
     toast(`${userName} inscrit sur la mission !`, "success");
+
+    // Notifier le bénévole qu'il a été inscrit sur une mission
+    const assignedEvent = events.find((e) => e.id === eventId);
+    const assignedMission = assignedEvent?.missions.find((m) => m.id === missionId);
+    const { data: assignedUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("name", userName)
+      .single();
+    if (assignedUser && assignedMission) {
+      sendPushNotification({
+        userIds: [assignedUser.id],
+        title: "📋 Vous avez été inscrit sur une mission !",
+        body: `Mission "${assignedMission.name}" — ${assignedEvent.title}`,
+        url: "/",
+      });
+    }
   }
 
   // Admin désinscrit n'importe quel bénévole d'une mission
