@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AdminUsersPage from "./pages/AdminUsersPage.jsx";
+import AdminConfigPage from "./pages/AdminConfigPage.jsx";
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -662,6 +663,16 @@ export default function App() {
     </div>
   );
 
+  if (page === "admin-config") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        {profileModal}
+        <AdminConfigPage onBack={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
   if (page === "admin-users") {
     return (
       <div style={styles.page}>
@@ -716,9 +727,14 @@ export default function App() {
       </button>
 
       {currentUser.role === "admin" && (
-        <button style={styles.orangeButton} onClick={() => setPage("admin-users")}>
-          Administration utilisateurs
-        </button>
+        <>
+          <button style={styles.orangeButton} onClick={() => setPage("admin-users")}>
+            Administration utilisateurs
+          </button>
+          <button style={styles.orangeButton} onClick={() => setPage("admin-config")}>
+            ⚙️ Équipes & Compétences
+          </button>
+        </>
       )}
 
       <DashboardPage
