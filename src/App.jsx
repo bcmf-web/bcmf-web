@@ -614,11 +614,20 @@ export default function App() {
 
   const userTeamNames = (currentUser.teamsList || []).map((t) => t.name);
 
+  function isClubEvent(e) {
+    return (
+      e.category === "Événement club" ||
+      e.teamsList?.some((t) => t.name === "Club") ||
+      e.team === "Club"
+    );
+  }
+
   const visibleEvents =
     currentUser.role === "admin"
       ? events
       : currentUser.role === "referent" && userTeamNames.length > 0
       ? events.filter((e) =>
+          isClubEvent(e) ||
           e.teamsList?.some((t) => userTeamNames.includes(t.name)) ||
           userTeamNames.includes(e.team)
         )
