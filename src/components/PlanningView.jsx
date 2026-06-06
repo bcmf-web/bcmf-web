@@ -14,6 +14,35 @@ function datetimeToMinutes(dt) {
   return d.getHours() * 60 + d.getMinutes();
 }
 
+// Calcule la couverture temporelle réelle d'une mission (minute par minute)
+// Retourne un % : pour chaque minute, y a-t-il au moins `need` bénévoles ?
+function getMissionCoverage(mission) {
+  const mStart = toMinutes(mission.timeStart);
+  const mEnd   = toMinutes(mission.timeEnd);
+
+  // Pas de plage horaire définie → couverture basée sur le nombre
+  if (mStart === null || mEnd === null || mEnd <= mStart) {
+    if (mission.need === 0) return 100;
+    return Math.min(100, Math.round((mission.assigned.length / mission.need) * 100));
+  }
+
+  const duration = mEnd - mStart;
+  let coveredMinutes = 0;
+
+  for (let t = mStart; t < mEnd; t++) {
+    let count = 0;
+    for (const a of mission.assigned) {
+      if (!a.slotStart || !a.slotEnd) continue;
+      const sStart = toMinutes(a.slotStart);
+      const sEnd   = toMinutes(a.slotEnd);
+      if (t >= sStart && t < sEnd) count++;
+    }
+    if (count >= mission.need) coveredMinutes++;
+  }
+
+  return Math.round((coveredMinutes / duration) * 100);
+}
+
 // Génère les heures à afficher sur la timeline
 function buildHourTicks(startMin, endMin) {
   const ticks = [];
@@ -98,10 +127,13 @@ export default function PlanningView({ event }) {
         const mLeft = pct(mStart);
         const mWidth = pct(mEnd) - mLeft;
 
-        const isCovered = mission.assigned.length >= mission.need;
-        const barColor = isCovered
-          ? { bg: "#bbf7d0", border: "#86efac", text: "#14532d" }
-          : { bg: "#fecaca", border: "#f87171", text: "#991b1b" };
+        const coverage = getMissionCoverage(mission);
+        const barColor =
+          coverage === 100
+            ? { bg: "#bbf7d0", border: "#86efac", text: "#14532d" }   // vert
+            : coverage > 0
+            ? { bg: "#fef3c7", border: "#fbbf24", text: "#92400e" }   // orange
+            : { bg: "#fecaca", border: "#f87171", text: "#991b1b" };  // rouge
 
         return (
           <div key={mission.id} style={rowStyle(mIdx)}>
@@ -110,8 +142,12 @@ export default function PlanningView({ event }) {
               <div style={missionLabelStyle}>
                 <strong style={{ fontSize: 13 }}>{mission.name}</strong>
                 <span style={skillBadgeStyle}>{mission.requiredSkill}</span>
-                <span style={{ fontSize: 12, color: isCovered ? "#16a34a" : "#dc2626", fontWeight: "bold" }}>
-                  {mission.assigned.length}/{mission.need}
+                <span style={{
+                  fontSize: 12,
+                  color: coverage === 100 ? "#16a34a" : coverage > 0 ? "#d97706" : "#dc2626",
+                  fontWeight: "bold"
+                }}>
+                  {mission.assigned.length}/{mission.need} · {coverage}%
                 </span>
               </div>
             </div>
@@ -132,7 +168,7 @@ export default function PlanningView({ event }) {
                     paddingLeft: 8,
                     overflow: "hidden",
                   }}
-                  title={`${mission.name} · ${formatTimeSlot(mission.timeStart)} → ${formatTimeSlot(mission.timeEnd)} · ${mission.assigned.length}/${mission.need}`}
+                  title={`${mission.name} · ${formatTimeSlot(mission.timeStart)} → ${formatTimeSlot(mission.timeEnd)} · ${coverage}% couvert`}
                 >
                   <span style={{ fontSize: 11, fontWeight: "bold", color: barColor.text, whiteSpace: "nowrap" }}>
                     {mission.name}
