@@ -4,7 +4,7 @@ import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
-const TEAM_CATEGORIES = ["Jeunes", "Seniors", "Loisirs", "Autres"];
+const TEAM_CATEGORIES = ["Jeunes", "Seniors", "Loisirs", "Pro"];
 
 export default function AdminConfigPage({ onBack }) {
   const styles = getStyles(useIsMobile());
