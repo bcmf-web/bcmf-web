@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import { notifyAdmins } from "../services/pushNotifications.js";
 
 export default function LoginPage({ onLogin }) {
   const { toast } = useNotify();
@@ -114,6 +115,11 @@ export default function LoginPage({ onLogin }) {
 	setConfirmPassword("");
 
     toast("Votre compte sera créé après validation par le club.", "info");
+    notifyAdmins(
+      "👤 Nouveau bénévole en attente",
+      `${firstName} ${lastName} vient de s'inscrire et attend votre validation.`,
+      "/"
+    );
 	
   }
 

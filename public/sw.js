@@ -1,4 +1,4 @@
-const CACHE_NAME = "bcmf-crew-v1";
+const CACHE_NAME = "bcmf-crew-v2";
 
 // Ressources à mettre en cache pour fonctionner hors ligne
 const STATIC_ASSETS = [
@@ -49,5 +49,35 @@ self.addEventListener("fetch", (event) => {
           (cached) => cached || caches.match("/index.html")
         );
       })
+  );
+});
+
+// ── Notifications Push ────────────────────────────────────────────────────────
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let data = {};
+  try { data = event.data.json(); } catch { data = { title: "BCMF Crew", body: event.data.text() }; }
+  const { title = "BCMF Crew", body = "", url = "/" } = data;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/logo-bcmf.svg",
+      badge: "/logo-bcmf.svg",
+      data: { url },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const existing = list.find((c) => c.url.includes(self.location.origin));
+      if (existing) return existing.focus();
+      return clients.openWindow(url);
+    })
   );
 });

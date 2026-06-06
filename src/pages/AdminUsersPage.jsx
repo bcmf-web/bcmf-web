@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { sendPushNotification } from "../services/pushNotifications.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
 
@@ -84,10 +85,20 @@ export default function AdminUsersPage({ currentUser, onBack }) {
     );
 
     setMessage("✅ Modifications enregistrées");
+    setTimeout(() => setMessage(""), 2000);
 
-    setTimeout(() => {
-      setMessage("");
-    }, 2000);
+    // Notifier le bénévole si son compte vient d'être validé
+    if (updates.status === "approved") {
+      const user = users.find((u) => u.id === userId);
+      if (user) {
+        sendPushNotification({
+          userIds: [userId],
+          title: "✅ Compte validé !",
+          body: `Bienvenue ${user.first_name || user.name} ! Vous pouvez maintenant vous inscrire sur les missions.`,
+          url: "/",
+        });
+      }
+    }
   }
   
   async function loadTeams() {

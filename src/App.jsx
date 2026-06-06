@@ -10,12 +10,25 @@ import LoginPage from "./pages/LoginPage.jsx";
 import PartnersPage from "./pages/PartnersPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import { useNotify } from "./contexts/NotifyContext.jsx";
+import {
+  isPushSupported,
+  isSubscribed,
+  subscribeToPush,
+  notifyAdmins,
+  notifyAll,
+  sendPushNotification,
+} from "./services/pushNotifications.js";
 import { getStyles } from "./styles/styles.js";
 import { useIsMobile } from "./hooks/useIsMobile.js";
 
 export default function App() {
   const styles = getStyles(useIsMobile());
   const { toast, confirm: confirmModal } = useNotify();
+  const [pushEnabled, setPushEnabled] = useState(false);
+
+  useEffect(() => {
+    isSubscribed().then(setPushEnabled);
+  }, []);
 
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -204,6 +217,7 @@ export default function App() {
 
     setEvents((prev) => [...prev, createdEvent]);
     toast("Événement créé avec succès !", "success");
+    notifyAll(`📅 Nouvel événement : ${newEvent.title}`, `${newEvent.place || ""} — inscrivez-vous !`, "/");
   }
 
   async function updateEvent(eventId, updatedEvent) {
@@ -481,6 +495,25 @@ export default function App() {
       })
     );
     toast("Inscription confirmée !", "success");
+
+    // Notifier les référents si la mission est maintenant complète
+    const completedEvent = events.find((e) => e.id === eventId);
+    const completedMission = completedEvent?.missions.find((m) => m.id === missionId);
+    if (completedMission && completedMission.assigned.length + 1 >= completedMission.need) {
+      const { data: referents } = await supabase
+        .from("users")
+        .select("id")
+        .in("role", ["admin", "referent"])
+        .eq("status", "approved");
+      if (referents?.length) {
+        sendPushNotification({
+          userIds: referents.map((u) => u.id),
+          title: "✅ Mission complète !",
+          body: `La mission "${completedMission.name}" est maintenant couverte.`,
+          url: "/",
+        });
+      }
+    }
   }
 
   async function cancelMission(eventId, missionId) {
@@ -514,6 +547,20 @@ export default function App() {
   }
 
   // Admin inscrit un bénévole sur une mission
+  async function handleTogglePush() {
+    if (pushEnabled) {
+      toast("Pour désactiver, allez dans les paramètres de votre navigateur.", "info");
+      return;
+    }
+    const result = await subscribeToPush(currentUser.id);
+    if (result?.error) {
+      toast(result.error, "error");
+    } else {
+      setPushEnabled(true);
+      toast("Notifications activées ! 🔔", "success");
+    }
+  }
+
   async function adminAssignMission(eventId, missionId, userName, slotStart, slotEnd) {
     const event = events.find((e) => e.id === eventId);
     const mission = event.missions.find((m) => m.id === missionId);
@@ -693,7 +740,7 @@ export default function App() {
   if (page === "admin-config") {
     return (
       <div style={styles.page}>
-        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
         {profileModal}
         <AdminConfigPage onBack={() => setPage("dashboard")} />
       </div>
@@ -703,7 +750,7 @@ export default function App() {
   if (page === "admin-users") {
     return (
       <div style={styles.page}>
-        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
         {profileModal}
         <AdminUsersPage currentUser={currentUser} onBack={() => setPage("dashboard")} />
       </div>
@@ -713,7 +760,7 @@ export default function App() {
   if (page === "partners") {
     return (
       <div style={styles.page}>
-        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
         {profileModal}
         <PartnersPage currentUser={currentUser} onBack={() => setPage("dashboard")} />
       </div>
@@ -723,7 +770,7 @@ export default function App() {
   if (selectedEvent) {
     return (
       <div style={styles.page}>
-        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
         {profileModal}
         <EventPage
           event={selectedEvent}
@@ -746,10 +793,10 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} />
+      <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
       {profileModal}
 
-<button style={styles.orangeButton} onClick={() => setPage("partners")}>
+      <button style={styles.orangeButton} onClick={() => setPage("partners")}>
         Un Besoin une envie ? Pensez à nos partenaires
       </button>
 
