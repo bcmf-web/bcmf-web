@@ -461,6 +461,24 @@ export default function App() {
       return;
     }
 
+    // Vérifier les conflits horaires avec les autres inscriptions du bénévole
+    if (slotStart && slotEnd) {
+      for (const ev of events) {
+        for (const m of ev.missions) {
+          if (m.id === missionId) continue;
+          const existing = m.assigned.find((a) => a.name === currentUser.name);
+          if (!existing?.slotStart || !existing?.slotEnd) continue;
+          if (slotStart < existing.slotEnd && slotEnd > existing.slotStart) {
+            toast(
+              `⏰ Conflit horaire avec la mission "${m.name}" (${existing.slotStart.slice(0,5)} → ${existing.slotEnd.slice(0,5)})`,
+              "warning"
+            );
+            return;
+          }
+        }
+      }
+    }
+
     const { error } = await supabase
       .from("assignments")
       .insert([{
