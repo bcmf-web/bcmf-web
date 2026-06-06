@@ -98,6 +98,11 @@ export default function PlanningView({ event }) {
         const mLeft = pct(mStart);
         const mWidth = pct(mEnd) - mLeft;
 
+        const isCovered = mission.assigned.length >= mission.need;
+        const barColor = isCovered
+          ? { bg: "#bbf7d0", border: "#86efac", text: "#14532d" }
+          : { bg: "#fecaca", border: "#f87171", text: "#991b1b" };
+
         return (
           <div key={mission.id} style={rowStyle(mIdx)}>
             {/* Label mission */}
@@ -105,7 +110,7 @@ export default function PlanningView({ event }) {
               <div style={missionLabelStyle}>
                 <strong style={{ fontSize: 13 }}>{mission.name}</strong>
                 <span style={skillBadgeStyle}>{mission.requiredSkill}</span>
-                <span style={{ fontSize: 12, color: "#64748b" }}>
+                <span style={{ fontSize: 12, color: isCovered ? "#16a34a" : "#dc2626", fontWeight: "bold" }}>
                   {mission.assigned.length}/{mission.need}
                 </span>
               </div>
@@ -114,15 +119,25 @@ export default function PlanningView({ event }) {
             {/* Timeline */}
             <div style={timelineColStyle}>
               <div style={trackStyle}>
-                {/* Barre de disponibilité de la mission */}
+                {/* Barre de disponibilité de la mission — rouge ou verte selon couverture */}
                 <div
                   style={{
                     ...missionBarStyle,
                     left: `${Math.max(0, mLeft)}%`,
                     width: `${Math.min(100 - Math.max(0, mLeft), mWidth)}%`,
+                    background: barColor.bg,
+                    border: `1px solid ${barColor.border}`,
+                    display: "flex",
+                    alignItems: "center",
+                    paddingLeft: 8,
+                    overflow: "hidden",
                   }}
-                  title={`${formatTimeSlot(mission.timeStart)} → ${formatTimeSlot(mission.timeEnd)}`}
-                />
+                  title={`${mission.name} · ${formatTimeSlot(mission.timeStart)} → ${formatTimeSlot(mission.timeEnd)} · ${mission.assigned.length}/${mission.need}`}
+                >
+                  <span style={{ fontSize: 11, fontWeight: "bold", color: barColor.text, whiteSpace: "nowrap" }}>
+                    {mission.name}
+                  </span>
+                </div>
 
                 {/* Créneaux des bénévoles */}
                 {mission.assigned.map((a, aIdx) => {
