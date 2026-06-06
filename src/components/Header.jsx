@@ -1,7 +1,9 @@
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { supabase } from "../services/supabaseClient.js";
 
 export default function Header({ currentUser, onProfileClick }) {
+  const styles = getStyles(useIsMobile());
   return (
     <>
       <header style={styles.header}>

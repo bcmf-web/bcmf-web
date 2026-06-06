@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
 
@@ -10,6 +11,7 @@ const statuses = ["pending", "approved", "rejected"];
 
 
 export default function AdminUsersPage({ currentUser, onBack }) {
+  const styles = getStyles(useIsMobile());
   const { toast } = useNotify();
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");

@@ -10,8 +10,11 @@ import LoginPage from "./pages/LoginPage.jsx";
 import PartnersPage from "./pages/PartnersPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import { useNotify } from "./contexts/NotifyContext.jsx";
+import { getStyles } from "./styles/styles.js";
+import { useIsMobile } from "./hooks/useIsMobile.js";
 
 export default function App() {
+  const styles = getStyles(useIsMobile());
   const { toast, confirm: confirmModal } = useNotify();
 
   const [events, setEvents] = useState([]);

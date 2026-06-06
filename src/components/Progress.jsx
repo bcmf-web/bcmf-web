@@ -1,6 +1,8 @@
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 export default function Progress({ value }) {
+  const styles = getStyles(useIsMobile());
   const color = value >= 100 ? "#27ae60" : value >= 50 ? "#f39c12" : "#e74c3c";
 
   return (

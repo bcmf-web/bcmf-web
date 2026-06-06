@@ -1,8 +1,10 @@
 import Progress from "./Progress.jsx";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { formatDate, formatTime } from "../utils/dateUtils.js";
 
 export default function EventCard({ event, coverage, onOpen }) {
+  const styles = getStyles(useIsMobile());
   const hasDatetime = !!event.start_datetime;
   const isMultiDay =
     hasDatetime &&

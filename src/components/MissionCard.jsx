@@ -1,4 +1,5 @@
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useState } from "react";
 import { formatTimeSlot } from "../utils/dateUtils.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
@@ -15,6 +16,7 @@ export default function MissionCard({
   onAdminAssign,
   onAdminUnassign,
 }) {
+  const styles = getStyles(useIsMobile());
   const { confirm: confirmModal } = useNotify();
   const isAssigned = mission.assigned.some((a) => a.name === currentUser.name);
   const hasSkill = currentUser.skills.includes(mission.requiredSkill);

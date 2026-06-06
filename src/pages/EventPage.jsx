@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import Progress from "../components/Progress.jsx";
 import MissionCard from "../components/MissionCard.jsx";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { canManageEvent } from "../services/permissions.js";
 import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
@@ -24,6 +25,7 @@ export default function EventPage({
   onAdminAssign,
   onAdminUnassign,
 }) {
+  const styles = getStyles(useIsMobile());
   const { toast } = useNotify();
   const manageAllowed = canManageEvent(currentUser, event);
 

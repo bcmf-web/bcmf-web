@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
 const TEAM_CATEGORIES = ["Jeunes", "Seniors", "Loisirs", "Autres"];
 
 export default function AdminConfigPage({ onBack }) {
+  const styles = getStyles(useIsMobile());
   const { toast, confirm: confirmModal } = useNotify();
   const [tab, setTab] = useState("teams"); // "teams" | "skills"
 

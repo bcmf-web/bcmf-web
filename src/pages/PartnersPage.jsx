@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
 const categories = ["Commerces", "Restauration", "Industriels", "loisirs", "BTP"];
@@ -8,6 +9,7 @@ const categories = ["Commerces", "Restauration", "Industriels", "loisirs", "BTP"
 const BUCKET = "partner-logos";
 
 export default function PartnersPage({ currentUser, onBack }) {
+  const styles = getStyles(useIsMobile());
   const { toast, confirm: confirmModal } = useNotify();
   const [partners, setPartners] = useState([]);
   const [activeCategory, setActiveCategory] = useState("Commerces");

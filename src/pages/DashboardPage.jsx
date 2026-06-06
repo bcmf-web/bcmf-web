@@ -1,6 +1,7 @@
 import Kpi from "../components/Kpi.jsx";
 import EventCard from "../components/EventCard.jsx";
-import { styles } from "../styles/styles.js";
+import { getStyles } from "../styles/styles.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 
@@ -21,6 +22,7 @@ export default function DashboardPage({
   onOpenEvent,
   onAddEvent,
 }) {
+  const styles = getStyles(useIsMobile());
   const [showPast, setShowPast] = useState(false);
   const [newEvent, setNewEvent] = useState(EMPTY_EVENT);
   const [teams, setTeams] = useState([]);
