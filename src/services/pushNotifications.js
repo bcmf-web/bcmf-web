@@ -57,8 +57,11 @@ export async function unsubscribeFromPush(userId) {
 // Envoyer une notification via l'Edge Function
 export async function sendPushNotification({ userIds, title, body, url }) {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    console.log("[Push] sendPushNotification appelé", { userIds, title });
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    console.log("[Push] token présent:", !!token);
 
     const res = await fetch(
       "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/send-push",
@@ -71,43 +74,39 @@ export async function sendPushNotification({ userIds, title, body, url }) {
         body: JSON.stringify({ user_ids: userIds, title, body, url }),
       }
     );
-    return await res.json();
+    const result = await res.json();
+    console.log("[Push] résultat:", result);
+    return result;
   } catch (e) {
-    console.error("Push error:", e);
+    console.error("[Push] erreur:", e);
   }
 }
 
 // Envoyer à tous les admins
 export async function notifyAdmins(title, body, url) {
-  const { data: admins } = await supabase
+  console.log("[Push] notifyAdmins appelé");
+  const { data: admins, error } = await supabase
     .from("users")
     .select("id")
     .eq("role", "admin")
     .eq("status", "approved");
 
+  console.log("[Push] admins trouvés:", admins?.length, "erreur:", error?.message);
   if (!admins?.length) return;
-  return sendPushNotification({
-    userIds: admins.map((a) => a.id),
-    title,
-    body,
-    url,
-  });
+  return sendPushNotification({ userIds: admins.map((a) => a.id), title, body, url });
 }
 
 // Envoyer à tous les bénévoles approuvés
 export async function notifyAll(title, body, url) {
-  const { data: users } = await supabase
+  console.log("[Push] notifyAll appelé");
+  const { data: users, error } = await supabase
     .from("users")
     .select("id")
     .eq("status", "approved");
 
+  console.log("[Push] users trouvés:", users?.length, "erreur:", error?.message);
   if (!users?.length) return;
-  return sendPushNotification({
-    userIds: users.map((u) => u.id),
-    title,
-    body,
-    url,
-  });
+  return sendPushNotification({ userIds: users.map((u) => u.id), title, body, url });
 }
 
 // Helper : convertir clé VAPID base64url en Uint8Array
