@@ -33,18 +33,12 @@ export async function subscribeToPush(userId) {
   });
 
   const subJson = subscription.toJSON();
-  console.log("[Push] Subscription créée, sauvegarde pour userId:", userId);
 
-  // Sauvegarder en base
   const { error } = await supabase
     .from("push_subscriptions")
     .upsert({ user_id: userId, subscription: subJson }, { onConflict: "user_id" });
 
-  if (error) {
-    console.error("[Push] Erreur sauvegarde:", error.message, error.code);
-    return { error: error.message };
-  }
-  console.log("[Push] Abonnement sauvegardé ✅");
+  if (error) return { error: error.message };
   return { success: true };
 }
 
@@ -62,11 +56,8 @@ export async function unsubscribeFromPush(userId) {
 // Envoyer une notification via l'Edge Function
 export async function sendPushNotification({ userIds, title, body, url }) {
   try {
-    console.log("[Push] sendPushNotification appelé", { userIds: JSON.stringify(userIds), title });
-
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
-    console.log("[Push] token présent:", !!token);
 
     const res = await fetch(
       "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/send-push",
@@ -79,9 +70,7 @@ export async function sendPushNotification({ userIds, title, body, url }) {
         body: JSON.stringify({ user_ids: userIds, title, body, url }),
       }
     );
-    const result = await res.json();
-    console.log("[Push] résultat:", result);
-    return result;
+    return await res.json();
   } catch (e) {
     console.error("[Push] erreur:", e);
   }
@@ -89,27 +78,21 @@ export async function sendPushNotification({ userIds, title, body, url }) {
 
 // Envoyer à tous les admins
 export async function notifyAdmins(title, body, url) {
-  console.log("[Push] notifyAdmins appelé");
-  const { data: admins, error } = await supabase
+  const { data: admins } = await supabase
     .from("users")
     .select("id")
     .eq("role", "admin")
     .eq("status", "approved");
-
-  console.log("[Push] admins trouvés:", admins?.length, "erreur:", error?.message);
   if (!admins?.length) return;
   return sendPushNotification({ userIds: admins.map((a) => a.id), title, body, url });
 }
 
 // Envoyer à tous les bénévoles approuvés
 export async function notifyAll(title, body, url) {
-  console.log("[Push] notifyAll appelé");
-  const { data: users, error } = await supabase
+  const { data: users } = await supabase
     .from("users")
     .select("id")
     .eq("status", "approved");
-
-  console.log("[Push] users trouvés:", users?.length, "erreur:", error?.message);
   if (!users?.length) return;
   return sendPushNotification({ userIds: users.map((u) => u.id), title, body, url });
 }
