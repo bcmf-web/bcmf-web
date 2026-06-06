@@ -33,13 +33,18 @@ export async function subscribeToPush(userId) {
   });
 
   const subJson = subscription.toJSON();
+  console.log("[Push] Subscription créée, sauvegarde pour userId:", userId);
 
   // Sauvegarder en base
   const { error } = await supabase
     .from("push_subscriptions")
     .upsert({ user_id: userId, subscription: subJson }, { onConflict: "user_id" });
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[Push] Erreur sauvegarde:", error.message, error.code);
+    return { error: error.message };
+  }
+  console.log("[Push] Abonnement sauvegardé ✅");
   return { success: true };
 }
 
