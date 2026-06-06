@@ -2,6 +2,7 @@ import Kpi from "../components/Kpi.jsx";
 import EventCard from "../components/EventCard.jsx";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 
@@ -78,9 +79,7 @@ export default function DashboardPage({
       </section>
 
       {canCreateEvent && (
-        <section style={styles.panel}>
-          <h2>Créer un événement</h2>
-
+        <CollapsiblePanel title="➕ Créer un événement">
           <input
             placeholder="Nom de l'événement"
             value={newEvent.title}
@@ -146,7 +145,7 @@ export default function DashboardPage({
           <button onClick={submitEvent} style={styles.orangeButton}>
             Ajouter événement
           </button>
-        </section>
+        </CollapsiblePanel>
       )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 35 }}>

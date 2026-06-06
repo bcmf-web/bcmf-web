@@ -3,6 +3,7 @@ import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useState } from "react";
 import { formatTimeSlot } from "../utils/dateUtils.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import CollapsiblePanel from "./CollapsiblePanel.jsx";
 
 export default function MissionCard({
   mission,
@@ -118,17 +119,13 @@ export default function MissionCard({
         )}
       </div>
 
-      {/* Section inscription admin */}
+      {/* Section inscription admin — pliable */}
       {canManage && (
-        <div style={adminSectionStyle}>
-          <p style={{ margin: "0 0 8px", fontWeight: "bold", fontSize: 13, color: "#14532d" }}>
-            Inscrire un bénévole
-          </p>
-
+        <CollapsiblePanel title="👤 Inscrire un bénévole">
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
-            style={{ ...styles.input, marginBottom: 8 }}
+            style={styles.input}
           >
             <option value="">— Choisir un bénévole habilité —</option>
             {availableUsers.map((u) => (
@@ -137,7 +134,7 @@ export default function MissionCard({
           </select>
 
           {mission.timeStart && mission.timeEnd && selectedUser && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 12 }}>De</label>
                 <input
@@ -177,7 +174,7 @@ export default function MissionCard({
           >
             Inscrire
           </button>
-        </div>
+        </CollapsiblePanel>
       )}
 
       {/* Sélecteur de créneau */}

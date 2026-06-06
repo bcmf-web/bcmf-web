@@ -8,6 +8,7 @@ import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
 import PlanningView from "../components/PlanningView.jsx";
+import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 import { supabase } from "../services/supabaseClient.js";
 
 export default function EventPage({
@@ -131,9 +132,7 @@ export default function EventPage({
       )}
 
       {manageAllowed && (
-        <section style={styles.panel}>
-          <h2>Modifier l'événement</h2>
-
+        <CollapsiblePanel title="✏️ Modifier l'événement">
           <input
             placeholder="Titre"
             value={editEvent.title}
@@ -188,13 +187,11 @@ export default function EventPage({
           <button onClick={submitEventUpdate} style={styles.orangeButton}>
             Enregistrer modifications
           </button>
-        </section>
+        </CollapsiblePanel>
       )}
 
       {manageAllowed && (
-        <section style={styles.panel}>
-          <h2>Ajouter une mission</h2>
-
+        <CollapsiblePanel title="➕ Ajouter une mission">
           <input
             placeholder="Nom de la mission"
             value={newMission.name}
@@ -246,7 +243,7 @@ export default function EventPage({
           <button onClick={submitMission} style={styles.orangeButton}>
             Ajouter mission
           </button>
-        </section>
+        </CollapsiblePanel>
       )}
 
       {/* Toggle vue liste / planning */}
