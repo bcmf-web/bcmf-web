@@ -231,7 +231,7 @@ export default function MissionCard({
       )}
 
       <div style={styles.buttonRow}>
-        {["benevole", "referent", "admin"].includes(currentUser.role) && !showSlotPicker && (
+        {["benevole", "joueuse", "referent", "admin"].includes(currentUser.role) && !showSlotPicker && (
           <>
             {isAssigned ? (
               <button style={styles.darkButton} onClick={onCancelMission}>

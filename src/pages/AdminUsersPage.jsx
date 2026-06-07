@@ -7,7 +7,7 @@ import { useNotify } from "../contexts/NotifyContext.jsx";
 
 
 
-const roles = ["benevole", "referent", "admin"];
+const roles = ["benevole", "joueuse", "referent", "admin"];
 const statuses = ["pending", "approved", "rejected"];
 
 
