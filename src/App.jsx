@@ -708,13 +708,13 @@ export default function App() {
   const visibleEvents =
     currentUser.role === "admin"
       ? events
-      : currentUser.role === "referent" && userTeamNames.length > 0
+      : userTeamNames.length > 0
       ? events.filter((e) =>
           isClubEvent(e) ||
           e.teamsList?.some((t) => userTeamNames.includes(t.name)) ||
           userTeamNames.includes(e.team)
         )
-      : events;
+      : events; // pas d'équipe définie → tout voir
 
   const profileModal = showProfile && (
     <div style={modalStyles.overlay}>
