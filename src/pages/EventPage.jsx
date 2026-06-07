@@ -4,7 +4,6 @@ import MissionCard from "../components/MissionCard.jsx";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { canManageEvent } from "../services/permissions.js";
-import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
 import { exportEventCSV, exportEventPDF, exportPlanningCSV, exportPlanningPDF } from "../utils/exportUtils.js";
@@ -39,11 +38,15 @@ export default function EventPage({
     teams: event.teamsList || [],
   });
   const [allTeams, setAllTeams] = useState([]);
+  const [allSkills, setAllSkills] = useState([]);
   const [approvedUsers, setApprovedUsers] = useState([]);
 
   useEffect(() => {
     supabase.from("teams").select("*").eq("active", true).order("name")
       .then(({ data }) => setAllTeams(data || []));
+
+    supabase.from("skills").select("*").eq("active", true).order("name")
+      .then(({ data }) => setAllSkills(data || []));
 
     supabase.from("users").select("id, name, skills").eq("status", "approved").order("name")
       .then(({ data }) => setApprovedUsers(data || []));
@@ -55,7 +58,7 @@ export default function EventPage({
   const [newMission, setNewMission] = useState({
     name: "",
     need: 1,
-    requiredSkill: skills[0] || "",
+    requiredSkill: "",
     timeStart: "",
     timeEnd: "",
   });
@@ -73,7 +76,7 @@ export default function EventPage({
       return;
     }
     onAddMission(event.id, { ...newMission, need: Number(newMission.need) });
-    setNewMission({ name: "", need: 1, requiredSkill: skills[0] || "", timeStart: "", timeEnd: "" });
+    setNewMission({ name: "", need: 1, requiredSkill: allSkills[0]?.name || "", timeStart: "", timeEnd: "" });
   }
 
   function submitEventUpdate() {
@@ -214,8 +217,8 @@ export default function EventPage({
             onChange={(e) => setNewMission({ ...newMission, requiredSkill: e.target.value })}
             style={styles.input}
           >
-            {skills.map((skill) => (
-              <option key={skill} value={skill}>{skill}</option>
+            {allSkills.map((skill) => (
+              <option key={skill.id} value={skill.name}>{skill.name}</option>
             ))}
           </select>
 
