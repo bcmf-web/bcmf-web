@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import AdminConfigPage from "./pages/AdminConfigPage.jsx";
+import AdminStatsPage from "./pages/AdminStatsPage.jsx";
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -772,6 +773,16 @@ export default function App() {
     </div>
   );
 
+  if (page === "admin-stats") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
+        {profileModal}
+        <AdminStatsPage events={events} onBack={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
   if (page === "admin-config") {
     return (
       <div style={styles.page}>
@@ -842,6 +853,9 @@ export default function App() {
           </button>
           <button style={styles.orangeButton} onClick={() => setPage("admin-config")}>
             ⚙️ Équipes & Compétences
+          </button>
+          <button style={styles.orangeButton} onClick={() => setPage("admin-stats")}>
+            📊 Statistiques & Exports
           </button>
         </>
       )}
