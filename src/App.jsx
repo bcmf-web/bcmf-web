@@ -462,7 +462,7 @@ export default function App() {
     }
 
     // Vérifier les conflits horaires — sauf pour admin et référent
-    if (slotStart && slotEnd && currentUser.role === "benevole") {
+    if (slotStart && slotEnd && currentUser.role !== "admin") {
       for (const ev of events) {
         for (const m of ev.missions) {
           if (m.id === missionId) continue;
