@@ -7,6 +7,7 @@ import { canManageEvent } from "../services/permissions.js";
 import { skills } from "../data/InitialData.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 import { formatDate, formatTime, toInputDatetime } from "../utils/dateUtils.js";
+import { exportEventCSV, exportEventPDF, exportPlanningCSV, exportPlanningPDF } from "../utils/exportUtils.js";
 import PlanningView from "../components/PlanningView.jsx";
 import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 import { supabase } from "../services/supabaseClient.js";
@@ -250,7 +251,7 @@ export default function EventPage({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 30 }}>
         <h2 style={{ ...styles.sectionTitle, margin: 0 }}>Missions</h2>
         {canSeePlanning && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               style={viewMode === "liste" ? styles.orangeButton : styles.darkButton}
               onClick={() => setViewMode("liste")}
@@ -262,6 +263,12 @@ export default function EventPage({
               onClick={() => setViewMode("planning")}
             >
               📅 Planning
+            </button>
+            <button style={styles.darkButton} onClick={() => viewMode === "planning" ? exportPlanningCSV(event) : exportEventCSV(event)}>
+              ⬇️ CSV
+            </button>
+            <button style={styles.darkButton} onClick={() => viewMode === "planning" ? exportPlanningPDF(event) : exportEventPDF(event)}>
+              📄 PDF
             </button>
           </div>
         )}
