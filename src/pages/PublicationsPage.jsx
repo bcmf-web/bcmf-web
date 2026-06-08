@@ -38,8 +38,11 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
 
   const fileInputRef = useRef();
 
+  const TEAMS = ["U7","U9","U11GP","U11PP","U13-1","U13-2","U15-1","U15-2","U18","U18-Elite","PNF","Loisir","DF3","LF2"];
+
   const emptyForm = {
     event_id:   "",
+    team_name:  "",
     opponent:   "",
     score_us:   "",
     score_them: "",
@@ -108,7 +111,7 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
       .insert([{
         event_id:    form.event_id || null,
         event_title: selectedEvent?.title || null,
-        team_name:   selectedEvent?.teamsList?.[0]?.name || currentUser.teamsList?.[0]?.name || "",
+        team_name:   form.team_name || selectedEvent?.teamsList?.[0]?.name || "",
         opponent:    form.opponent,
         score_us:    form.score_us !== "" ? Number(form.score_us) : null,
         score_them:  form.score_them !== "" ? Number(form.score_them) : null,
@@ -244,6 +247,22 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
                   <option key={ev.id} value={ev.id}>
                     {ev.title} {ev.start_datetime ? `(${new Date(ev.start_datetime).toLocaleDateString("fr-FR")})` : ""}
                   </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Équipe */}
+            <div>
+              <label style={labelStyle}>Équipe *</label>
+              <select
+                required
+                value={form.team_name}
+                onChange={(e) => setForm((f) => ({ ...f, team_name: e.target.value }))}
+                style={inputStyle}
+              >
+                <option value="">— Sélectionner une équipe —</option>
+                {TEAMS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
                 ))}
               </select>
             </div>
