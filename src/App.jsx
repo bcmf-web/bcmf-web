@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import AdminConfigPage from "./pages/AdminConfigPage.jsx";
 import AdminStatsPage from "./pages/AdminStatsPage.jsx";
+import PublicationsPage from "./pages/PublicationsPage.jsx";
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -813,6 +814,20 @@ export default function App() {
     );
   }
 
+  if (page === "publications") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
+        {profileModal}
+        <PublicationsPage
+          currentUser={currentUser}
+          events={events}
+          onBack={() => setPage("dashboard")}
+        />
+      </div>
+    );
+  }
+
   if (selectedEvent) {
     return (
       <div style={styles.page}>
@@ -845,6 +860,12 @@ export default function App() {
       <button style={styles.orangeButton} onClick={() => setPage("partners")}>
         Un Besoin une envie ? Pensez à nos partenaires
       </button>
+
+      {(currentUser.role === "admin" || currentUser.role === "referent") && (
+        <button style={styles.orangeButton} onClick={() => setPage("publications")}>
+          📣 Publications (scores & photos)
+        </button>
+      )}
 
       {currentUser.role === "admin" && (
         <>
