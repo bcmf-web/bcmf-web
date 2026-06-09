@@ -38,7 +38,7 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
 
   const fileInputRef = useRef();
 
-  const ALL_TEAMS = ["U7","U9","U11GP","U11PP","U13-1","U13-2","U15-1","U15-2","U18","U18-Elite","PNF","Loisir","DF3","LF2"];
+  const ALL_TEAMS = ["Club","U7","U9","U11GP","U11PP","U13-1","U13-2","U15-1","U15-2","U18","U18-Elite","PNF","Loisir","DF3","LF2"];
 
   // Équipes accessibles selon le rôle
   const userTeams = currentUser.role === "admin"
