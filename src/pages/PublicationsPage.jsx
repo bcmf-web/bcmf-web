@@ -38,11 +38,19 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
 
   const fileInputRef = useRef();
 
-  const TEAMS = ["U7","U9","U11GP","U11PP","U13-1","U13-2","U15-1","U15-2","U18","U18-Elite","PNF","Loisir","DF3","LF2"];
+  const ALL_TEAMS = ["U7","U9","U11GP","U11PP","U13-1","U13-2","U15-1","U15-2","U18","U18-Elite","PNF","Loisir","DF3","LF2"];
+
+  // Équipes accessibles selon le rôle
+  const userTeams = currentUser.role === "admin"
+    ? ALL_TEAMS
+    : (currentUser.team ? currentUser.team.split(",").map(t => t.trim()).filter(Boolean) : []);
+
+  // Pré-sélection si une seule équipe
+  const defaultTeam = userTeams.length === 1 ? userTeams[0] : "";
 
   const emptyForm = {
     event_id:   "",
-    team_name:  "",
+    team_name:  defaultTeam,
     opponent:   "",
     score_us:   "",
     score_them: "",
@@ -100,7 +108,7 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
   // ── Soumission du formulaire ─────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.opponent) return;
+    if (!form.team_name) return;
     setSubmitting(true);
 
     const selectedEvent = events.find((ev) => ev.id === form.event_id);
@@ -254,25 +262,31 @@ export default function PublicationsPage({ currentUser, events = [], onBack }) {
             {/* Équipe */}
             <div>
               <label style={labelStyle}>Équipe *</label>
-              <select
-                required
-                value={form.team_name}
-                onChange={(e) => setForm((f) => ({ ...f, team_name: e.target.value }))}
-                style={inputStyle}
-              >
-                <option value="">— Sélectionner une équipe —</option>
-                {TEAMS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              {userTeams.length === 1 ? (
+                // Une seule équipe → affichage fixe
+                <div style={{ ...inputStyle, background: "#f3f4f6", color: "#374151", fontWeight: "bold" }}>
+                  {userTeams[0]}
+                </div>
+              ) : (
+                <select
+                  required
+                  value={form.team_name}
+                  onChange={(e) => setForm((f) => ({ ...f, team_name: e.target.value }))}
+                  style={inputStyle}
+                >
+                  <option value="">— Sélectionner une équipe —</option>
+                  {userTeams.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Adversaire */}
             <div>
-              <label style={labelStyle}>Adversaire *</label>
+              <label style={labelStyle}>Adversaire (optionnel)</label>
               <input
-                required
-                placeholder="Nom de l'équipe adverse"
+                placeholder="Nom de l'équipe adverse (si match)"
                 value={form.opponent}
                 onChange={(e) => setForm((f) => ({ ...f, opponent: e.target.value }))}
                 style={inputStyle}
