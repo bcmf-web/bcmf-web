@@ -1,26 +1,43 @@
 import { formatTimeSlot } from "../utils/dateUtils.js";
 
-// Convertit "HH:MM" ou "HH:MM:SS" en minutes depuis minuit
-function toMinutes(timeStr) {
-  if (!timeStr) return null;
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
+// Convertit un datetime ISO en minutes absolues (depuis l'epoch)
+function dtToAbsMin(dt) {
+  if (!dt) return null;
+  return Math.round(new Date(dt).getTime() / 60000);
 }
 
-// Convertit un datetime en minutes depuis minuit
-function datetimeToMinutes(dt) {
-  if (!dt) return null;
-  const d = new Date(dt);
-  return d.getHours() * 60 + d.getMinutes();
+// Convertit "HH:MM" ou "HH:MM:SS" en minutes absolues, ancré sur l'événement.
+// Si le temps calculé est plus de 12h avant le début → passage minuit (+24h).
+function timeStrToAbsMin(timeStr, eventStartAbsMin) {
+  if (!timeStr || eventStartAbsMin == null) return null;
+  const [h, m] = timeStr.split(":").map(Number);
+  const refMs = eventStartAbsMin * 60000;
+  const d = new Date(refMs);
+  d.setHours(h, m, 0, 0);
+  let absMin = Math.round(d.getTime() / 60000);
+  // Si le créneau est plus de 12h avant le début de l'événement → lendemain
+  if (absMin < eventStartAbsMin - 12 * 60) absMin += 24 * 60;
+  return absMin;
+}
+
+// Génère les graduations horaires (ticks) entre deux minutes absolues
+function buildHourTicks(startAbsMin, endAbsMin) {
+  const ticks = [];
+  const firstHour = Math.floor(startAbsMin / 60);
+  const lastHour  = Math.ceil(endAbsMin / 60);
+  for (let h = firstHour; h <= lastHour; h++) {
+    const absMin  = h * 60;
+    const wallHour = ((h % 24) + 24) % 24; // gère le passage minuit
+    ticks.push({ absMin, label: `${String(wallHour).padStart(2, "0")}:00` });
+  }
+  return ticks;
 }
 
 // Calcule la couverture temporelle réelle d'une mission (minute par minute)
-// Retourne un % : pour chaque minute, y a-t-il au moins `need` bénévoles ?
-function getMissionCoverage(mission) {
-  const mStart = toMinutes(mission.timeStart);
-  const mEnd   = toMinutes(mission.timeEnd);
+function getMissionCoverage(mission, eventStartAbsMin) {
+  const mStart = timeStrToAbsMin(mission.timeStart, eventStartAbsMin);
+  const mEnd   = timeStrToAbsMin(mission.timeEnd, eventStartAbsMin);
 
-  // Pas de plage horaire définie → couverture basée sur le nombre
   if (mStart === null || mEnd === null || mEnd <= mStart) {
     if (mission.need === 0) return 100;
     return Math.min(100, Math.round((mission.assigned.length / mission.need) * 100));
@@ -33,8 +50,8 @@ function getMissionCoverage(mission) {
     let count = 0;
     for (const a of mission.assigned) {
       if (!a.slotStart || !a.slotEnd) continue;
-      const sStart = toMinutes(a.slotStart);
-      const sEnd   = toMinutes(a.slotEnd);
+      const sStart = timeStrToAbsMin(a.slotStart, eventStartAbsMin);
+      const sEnd   = timeStrToAbsMin(a.slotEnd, eventStartAbsMin);
       if (t >= sStart && t < sEnd) count++;
     }
     if (count >= mission.need) coveredMinutes++;
@@ -43,27 +60,16 @@ function getMissionCoverage(mission) {
   return Math.round((coveredMinutes / duration) * 100);
 }
 
-// Génère les heures à afficher sur la timeline
-function buildHourTicks(startMin, endMin) {
-  const ticks = [];
-  const firstHour = Math.floor(startMin / 60);
-  const lastHour = Math.ceil(endMin / 60);
-  for (let h = firstHour; h <= lastHour; h++) {
-    ticks.push(h);
-  }
-  return ticks;
-}
-
 const COLORS = [
   "#16a34a", "#2563eb", "#d97706", "#7c3aed",
   "#db2777", "#0891b2", "#65a30d", "#dc2626",
 ];
 
 export default function PlanningView({ event }) {
-  const eventStart = datetimeToMinutes(event.start_datetime);
-  const eventEnd = datetimeToMinutes(event.end_datetime);
+  const eventStartAbsMin = dtToAbsMin(event.start_datetime);
+  const eventEndAbsMin   = dtToAbsMin(event.end_datetime);
 
-  if (eventStart === null || eventEnd === null) {
+  if (eventStartAbsMin === null || eventEndAbsMin === null) {
     return (
       <div style={msgStyle}>
         ℹ️ Définissez les horaires de début et de fin de l'événement pour afficher le planning.
@@ -71,7 +77,7 @@ export default function PlanningView({ event }) {
     );
   }
 
-  const totalMin = eventEnd - eventStart;
+  const totalMin = eventEndAbsMin - eventStartAbsMin;
   if (totalMin <= 0) {
     return (
       <div style={msgStyle}>
@@ -80,11 +86,11 @@ export default function PlanningView({ event }) {
     );
   }
 
-  const ticks = buildHourTicks(eventStart, eventEnd);
+  const ticks = buildHourTicks(eventStartAbsMin, eventEndAbsMin);
 
-  // % position et largeur depuis des minutes absolues
-  function pct(min) {
-    return ((min - eventStart) / totalMin) * 100;
+  // % de position sur la timeline depuis des minutes absolues
+  function pct(absMin) {
+    return ((absMin - eventStartAbsMin) / totalMin) * 100;
   }
 
   const missionsWithSlots = event.missions.filter(
@@ -100,19 +106,15 @@ export default function PlanningView({ event }) {
 
       {/* Règle horaire */}
       <div style={rulerWrapStyle}>
-        <div style={labelColStyle} /> {/* espace pour les labels */}
+        <div style={labelColStyle} />
         <div style={timelineColStyle}>
           <div style={rulerStyle}>
-            {ticks.map((h) => {
-              const posMin = h * 60;
-              const pos = pct(posMin);
+            {ticks.map(({ absMin, label }) => {
+              const pos = pct(absMin);
               if (pos < 0 || pos > 100) return null;
               return (
-                <div
-                  key={h}
-                  style={{ ...tickStyle, left: `${pos}%` }}
-                >
-                  <span style={tickLabelStyle}>{String(h).padStart(2, "0")}:00</span>
+                <div key={absMin} style={{ ...tickStyle, left: `${pos}%` }}>
+                  <span style={tickLabelStyle}>{label}</span>
                 </div>
               );
             })}
@@ -122,18 +124,18 @@ export default function PlanningView({ event }) {
 
       {/* Lignes de mission avec créneau */}
       {missionsWithSlots.map((mission, mIdx) => {
-        const mStart = toMinutes(mission.timeStart);
-        const mEnd = toMinutes(mission.timeEnd);
-        const mLeft = pct(mStart);
-        const mWidth = pct(mEnd) - mLeft;
+        const mStart  = timeStrToAbsMin(mission.timeStart, eventStartAbsMin);
+        const mEnd    = timeStrToAbsMin(mission.timeEnd, eventStartAbsMin);
+        const mLeft   = pct(mStart);
+        const mWidth  = pct(mEnd) - mLeft;
 
-        const coverage = getMissionCoverage(mission);
+        const coverage = getMissionCoverage(mission, eventStartAbsMin);
         const barColor =
           coverage === 100
-            ? { bg: "#bbf7d0", border: "#86efac", text: "#14532d" }   // vert
+            ? { bg: "#bbf7d0", border: "#86efac", text: "#14532d" }
             : coverage > 0
-            ? { bg: "#fef3c7", border: "#fbbf24", text: "#92400e" }   // orange
-            : { bg: "#fecaca", border: "#f87171", text: "#991b1b" };  // rouge
+            ? { bg: "#fef3c7", border: "#fbbf24", text: "#92400e" }
+            : { bg: "#fecaca", border: "#f87171", text: "#991b1b" };
 
         return (
           <div key={mission.id} style={rowStyle(mIdx)}>
@@ -155,7 +157,7 @@ export default function PlanningView({ event }) {
             {/* Timeline */}
             <div style={timelineColStyle}>
               <div style={trackStyle}>
-                {/* Barre de disponibilité de la mission — rouge ou verte selon couverture */}
+                {/* Barre de disponibilité de la mission */}
                 <div
                   style={{
                     ...missionBarStyle,
@@ -178,11 +180,11 @@ export default function PlanningView({ event }) {
                 {/* Créneaux des bénévoles */}
                 {mission.assigned.map((a, aIdx) => {
                   if (!a.slotStart || !a.slotEnd) return null;
-                  const sStart = toMinutes(a.slotStart);
-                  const sEnd = toMinutes(a.slotEnd);
-                  const sLeft = pct(sStart);
+                  const sStart = timeStrToAbsMin(a.slotStart, eventStartAbsMin);
+                  const sEnd   = timeStrToAbsMin(a.slotEnd, eventStartAbsMin);
+                  const sLeft  = pct(sStart);
                   const sWidth = pct(sEnd) - sLeft;
-                  const color = COLORS[aIdx % COLORS.length];
+                  const color  = COLORS[aIdx % COLORS.length];
 
                   return (
                     <div

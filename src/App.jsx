@@ -463,14 +463,27 @@ export default function App() {
       return;
     }
 
-    // Vérifier les conflits horaires — sauf pour admin et référent
+    // Vérifier les conflits horaires — sauf pour admin
+    // Passage minuit géré : si fin < début → +24h
+    function toAbsMin(t, refMin) {
+      const [h, m] = t.split(":").map(Number);
+      const v = h * 60 + m;
+      return v < refMin - 12 * 60 ? v + 24 * 60 : v;
+    }
     if (slotStart && slotEnd && currentUser.role !== "admin") {
+      const sStartMin = toAbsMin(slotStart, 0);
+      let sEndMin = toAbsMin(slotEnd, 0);
+      if (sEndMin < sStartMin) sEndMin += 24 * 60;
+
       for (const ev of events) {
         for (const m of ev.missions) {
           if (m.id === missionId) continue;
           const existing = m.assigned.find((a) => a.name === currentUser.name);
           if (!existing?.slotStart || !existing?.slotEnd) continue;
-          if (slotStart < existing.slotEnd && slotEnd > existing.slotStart) {
+          const eStartMin = toAbsMin(existing.slotStart, sStartMin);
+          let eEndMin = toAbsMin(existing.slotEnd, sStartMin);
+          if (eEndMin < eStartMin) eEndMin += 24 * 60;
+          if (sStartMin < eEndMin && sEndMin > eStartMin) {
             toast(
               `⏰ Conflit horaire avec la mission "${m.name}" (${existing.slotStart.slice(0,5)} → ${existing.slotEnd.slice(0,5)})`,
               "warning"
@@ -857,29 +870,31 @@ export default function App() {
       <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
       {profileModal}
 
-      <button style={styles.orangeButton} onClick={() => setPage("partners")}>
-        Un Besoin une envie ? Pensez à nos partenaires
-      </button>
-
-      {(currentUser.role === "admin" || currentUser.role === "referent") && (
-        <button style={styles.orangeButton} onClick={() => setPage("publications")}>
-          📣 Publications (scores & photos)
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+        <button style={navBtn} onClick={() => setPage("partners")}>
+          🤝 Un besoin, une envie ? Pensez à nos partenaires
         </button>
-      )}
 
-      {currentUser.role === "admin" && (
-        <>
-          <button style={styles.orangeButton} onClick={() => setPage("admin-users")}>
-            Administration utilisateurs
+        {(currentUser.role === "admin" || currentUser.role === "referent") && (
+          <button style={navBtn} onClick={() => setPage("publications")}>
+            📣 Publications (scores & photos)
           </button>
-          <button style={styles.orangeButton} onClick={() => setPage("admin-config")}>
-            ⚙️ Équipes & Compétences
-          </button>
-          <button style={styles.orangeButton} onClick={() => setPage("admin-stats")}>
-            📊 Statistiques & Exports
-          </button>
-        </>
-      )}
+        )}
+
+        {currentUser.role === "admin" && (
+          <>
+            <button style={navBtn} onClick={() => setPage("admin-users")}>
+              👥 Administration utilisateurs
+            </button>
+            <button style={navBtn} onClick={() => setPage("admin-config")}>
+              ⚙️ Équipes & Compétences
+            </button>
+            <button style={navBtn} onClick={() => setPage("admin-stats")}>
+              📊 Statistiques & Exports
+            </button>
+          </>
+        )}
+      </div>
 
       <DashboardPage
         currentUser={currentUser}
@@ -891,6 +906,26 @@ export default function App() {
     </div>
   );
 }
+
+const navBtn = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  height: 48,
+  padding: "0 18px",
+  borderRadius: 12,
+  cursor: "pointer",
+  fontWeight: "bold",
+  fontSize: 14,
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
 
 const modalStyles = {
   overlay: {

@@ -58,13 +58,18 @@ export default function MissionCard({
     }
   }
 
+  // Gère le passage minuit : si fin < début → ajouter 24h
+  function toMin(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+  function slotInvalid(s, e) {
+    if (!s || !e) return true;
+    const sm = toMin(s);
+    let em = toMin(e);
+    if (em < sm) em += 24 * 60;
+    return em <= sm;
+  }
+
   function confirmSlot() {
-    if (!slotStart || !slotEnd) {
-      return;
-    }
-    if (slotStart >= slotEnd) {
-      return;
-    }
+    if (slotInvalid(slotStart, slotEnd)) return;
     onTakeMission(slotStart, slotEnd);
     setShowSlotPicker(false);
   }
@@ -210,15 +215,15 @@ export default function MissionCard({
               />
             </div>
           </div>
-          {slotStart && slotEnd && slotStart >= slotEnd && (
+          {slotStart && slotEnd && slotInvalid(slotStart, slotEnd) && (
             <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 8 }}>
               ⚠️ L'heure de fin doit être après l'heure de début.
             </p>
           )}
           <div style={{ display: "flex", gap: 8 }}>
             <button
-              style={(!slotStart || !slotEnd || slotStart >= slotEnd) ? styles.disabledButton : styles.orangeButton}
-              disabled={!slotStart || !slotEnd || slotStart >= slotEnd}
+              style={slotInvalid(slotStart, slotEnd) ? styles.disabledButton : styles.orangeButton}
+              disabled={slotInvalid(slotStart, slotEnd)}
               onClick={confirmSlot}
             >
               Confirmer mon créneau
