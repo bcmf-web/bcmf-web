@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rejoins l'équipe BCMF – Bénévoles</title>
+  <meta name="description" content="Rejoins les bénévoles du club Montbrison-Forez Basket Féminin et gère tes missions facilement avec BCMF Crew." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Montserrat", sans-serif;
+      background: #f0fdf4;
+      color: #1a1a2e;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #052e16 0%, #14532d 55%, #16a34a 100%);
+      color: white;
+      padding: 60px 20px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+    .hero-logo {
+      width: 90px;
+      height: 90px;
+      background: white;
+      border-radius: 22px;
+      padding: 10px;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,.3);
+      font-size: 42px;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 6vw, 52px);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .hero h1 span { color: #86efac; }
+    .hero p {
+      font-size: clamp(15px, 2.5vw, 20px);
+      opacity: .88;
+      max-width: 560px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: white;
+      color: #14532d;
+      font-family: "Montserrat", sans-serif;
+      font-weight: 800;
+      font-size: 17px;
+      padding: 16px 40px;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 6px 24px rgba(0,0,0,.25);
+      transition: transform .2s, box-shadow .2s;
+      position: relative;
+      z-index: 1;
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.3); }
+    .hero-sub {
+      margin-top: 16px;
+      font-size: 13px;
+      opacity: .7;
+    }
+
+    /* ── WAVE ── */
+    .wave {
+      display: block;
+      width: 100%;
+      height: 60px;
+      background: linear-gradient(135deg, #052e16 0%, #14532d 55%, #16a34a 100%);
+      clip-path: ellipse(55% 100% at 50% 0%);
+      margin-top: -1px;
+    }
+
+    /* ── SECTION ── */
+    .section { padding: 60px 20px; max-width: 960px; margin: 0 auto; }
+    .section-title {
+      text-align: center;
+      font-size: clamp(22px, 4vw, 34px);
+      font-weight: 800;
+      color: #14532d;
+      margin-bottom: 10px;
+    }
+    .section-sub {
+      text-align: center;
+      color: #64748b;
+      font-size: 15px;
+      margin-bottom: 48px;
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.07);
+      border-top: 4px solid #16a34a;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,.12); }
+    .feature-icon { font-size: 36px; margin-bottom: 14px; }
+    .feature-card h3 { font-size: 17px; font-weight: 700; color: #14532d; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #64748b; line-height: 1.6; }
+
+    /* ── HOW IT WORKS ── */
+    .steps-bg { background: white; }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 32px;
+      counter-reset: steps;
+    }
+    .step {
+      text-align: center;
+      counter-increment: steps;
+      position: relative;
+    }
+    .step-num {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #14532d, #16a34a);
+      color: white;
+      font-size: 22px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      box-shadow: 0 4px 14px rgba(22,163,74,.35);
+    }
+    .step h3 { font-size: 16px; font-weight: 700; color: #14532d; margin-bottom: 6px; }
+    .step p { font-size: 13px; color: #64748b; line-height: 1.5; }
+
+    /* ── TESTIMONIAL / QUOTE ── */
+    .quote-section { background: #dcfce7; }
+    .quote-box {
+      max-width: 680px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .quote-text {
+      font-size: clamp(18px, 3vw, 26px);
+      font-weight: 700;
+      color: #14532d;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .quote-text::before { content: "«\00a0"; }
+    .quote-text::after  { content: "\00a0»"; }
+    .quote-author { font-size: 14px; color: #16a34a; font-weight: 600; }
+
+    /* ── CTA FINAL ── */
+    .cta-section {
+      background: linear-gradient(135deg, #052e16, #16a34a);
+      color: white;
+      text-align: center;
+      padding: 70px 20px;
+    }
+    .cta-section h2 {
+      font-size: clamp(24px, 5vw, 42px);
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+    .cta-section p { font-size: 16px; opacity: .85; margin-bottom: 36px; }
+    .btn-cta {
+      display: inline-block;
+      background: #86efac;
+      color: #052e16;
+      font-family: "Montserrat", sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      padding: 18px 48px;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 6px 24px rgba(0,0,0,.25);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .btn-cta:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.3); }
+
+    /* ── BADGES ── */
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 28px;
+    }
+    .badge {
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.3);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #052e16;
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 20px;
+      font-size: 13px;
+    }
+    footer a { color: #86efac; text-decoration: none; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 500px) {
+      .hero { padding: 50px 16px 70px; }
+      .btn-primary, .btn-cta { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-logo">🏀</div>
+    <h1>Rejoins l'équipe<br /><span>BCMF Crew</span></h1>
+    <p>
+      Le club Montbrison-Forez Basket Féminin a besoin de toi !
+      Gère tes missions bénévoles facilement, partout et depuis ton téléphone.
+    </p>
+    <a href="https://bcmf-web.vercel.app/" target="_blank" rel="noreferrer" class="btn-primary" onclick="window.open('https://bcmf-web.vercel.app/','_blank');return false;">
+      🙌 Je m'inscris maintenant
+    </a>
+    <p class="hero-sub">Gratuit · Sans engagement · Validé par le club</p>
+  </section>
+  <div class="wave"></div>
+
+  <!-- FEATURES -->
+  <section class="section">
+    <h2 class="section-title">Pourquoi rejoindre BCMF Crew ?</h2>
+    <p class="section-sub">Une appli pensée pour les bénévoles, par des bénévoles.</p>
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">📅</div>
+        <h3>Tous les événements au même endroit</h3>
+        <p>Consulte les matchs, tournois et événements du club en temps réel, directement depuis ton téléphone.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✋</div>
+        <h3>Inscris-toi aux missions en un clic</h3>
+        <p>Choisis tes créneaux, t'inscrire à une mission ne prend que quelques secondes. Fini les tableurs Excel !</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h3>Rappels automatiques</h3>
+        <p>Reçois une notification 24h avant chaque mission. Tu ne rateras plus jamais un engagement.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Fonctionne sur tous les téléphones</h3>
+        <p>Application web progressive (PWA) : installe-la sur ton écran d'accueil comme une vraie app, sans passer par l'App Store.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤝</div>
+        <h3>Rejoins ton équipe</h3>
+        <p>Rattache-toi à une ou plusieurs équipes du club et vois uniquement les événements qui te concernent.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Compte sécurisé & validé</h3>
+        <p>Ton inscription est vérifiée par l'équipe du club. Un espace de confiance, réservé aux membres.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <div class="steps-bg">
+    <section class="section">
+      <h2 class="section-title">Comment ça marche ?</h2>
+      <p class="section-sub">En 4 étapes simples, tu es opérationnel(le).</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Crée ton compte</h3>
+          <p>Renseigne ton nom, prénom, email et sélectionne ton équipe.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Validation du club</h3>
+          <p>L'équipe BCMF valide ton profil. Tu reçois un accès rapide.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Explore les événements</h3>
+          <p>Consulte le calendrier et les missions disponibles pour ton équipe.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>Propose ta disponibilité</h3>
+          <p>Inscris-toi aux créneaux qui t'arrangent. L'appli gère tout !</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- QUOTE -->
+  <div class="quote-section">
+    <section class="section" style="padding: 50px 20px;">
+      <div class="quote-box">
+        <p class="quote-text">
+          Sans les bénévoles, il n'y a pas de club.<br />
+          Avec BCMF Crew, s'investir n'a jamais été aussi simple.
+        </p>
+        <p class="quote-author">— L'équipe BCMF · Montbrison-Forez Basket Féminin</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- CTA FINAL -->
+  <section class="cta-section">
+    <h2>Prêt(e) à rejoindre l'aventure ?</h2>
+    <p>Rejoins les bénévoles du club et fais partie de l'équipe qui fait vivre le basket féminin à Montbrison.</p>
+    <a href="https://bcmf-web.vercel.app/" target="_blank" rel="noreferrer" class="btn-cta" onclick="window.open('https://bcmf-web.vercel.app/','_blank');return false;">
+      🏀 Je rejoins BCMF Crew
+    </a>
+    <div class="badges">
+      <span class="badge">✅ Gratuit</span>
+      <span class="badge">📱 Sur mobile & desktop</span>
+      <span class="badge">🔔 Notifications push</span>
+      <span class="badge">🔒 Compte sécurisé</span>
+      <span class="badge">⚡ Inscription en 2 minutes</span>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2025 Montbrison-Forez Basket Féminin · <a href="https://bcmf-web.vercel.app/" target="_blank">bcmf-web.vercel.app</a></p>
+  </footer>
+
+</body>
+</html>
