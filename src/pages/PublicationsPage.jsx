@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../services/supabaseClient.js";
+import { publishToSportsRegions } from "../services/sportsregions.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { getStyles } from "../styles/styles.js";
 
@@ -15,6 +16,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
   const [loading, setLoading]           = useState(true);
   const [showForm, setShowForm]         = useState(false);
   const [submitting, setSubmitting]     = useState(false);
+  const [syncing, setSyncing]           = useState(null);
   const [previewUrls, setPreviewUrls]   = useState([]);
   const [allTeams, setAllTeams]         = useState([]);
 
@@ -101,6 +103,19 @@ export default function PublicationsPage({ currentUser, onBack }) {
     setPreviewUrls([]);
     setShowForm(false);
     setSubmitting(false);
+  }
+
+  // ── Sync sportsregions ────────────────────────────────────────────────────
+  async function handleSync(pub) {
+    setSyncing(pub.id);
+    const result = await publishToSportsRegions(pub);
+    if (result.success) {
+      await supabase.from("publications").update({ synced: true }).eq("id", pub.id);
+      setPublications((prev) => prev.map((p) => p.id === pub.id ? { ...p, synced: true } : p));
+    } else {
+      alert("Erreur lors de la mise en ligne : " + result.error);
+    }
+    setSyncing(null);
   }
 
   // ── Suppression ───────────────────────────────────────────────────────────
@@ -222,14 +237,30 @@ export default function PublicationsPage({ currentUser, onBack }) {
                     Publié par {pub.published_by} · {formatDate(pub.created_at)}
                   </div>
                 </div>
-                {currentUser.role === "admin" && (
-                  <button
-                    onClick={() => handleDelete(pub.id)}
-                    style={{ background: "#fee2e2", color: "#dc2626", border: "none", padding: "7px 14px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: "bold" }}
-                  >
-                    🗑 Supprimer
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {(currentUser.role === "admin" || currentUser.role === "referent") && !pub.synced && (
+                    <button
+                      onClick={() => handleSync(pub)}
+                      disabled={syncing === pub.id}
+                      style={{ background: syncing === pub.id ? "#86efac" : "#16a34a", color: "white", border: "none", padding: "7px 14px", borderRadius: 10, cursor: syncing === pub.id ? "not-allowed" : "pointer", fontSize: 13, fontWeight: "bold" }}
+                    >
+                      {syncing === pub.id ? "⏳ Envoi..." : "🌐 Mettre en ligne"}
+                    </button>
+                  )}
+                  {pub.synced && (
+                    <span style={{ background: "#dcfce7", color: "#16a34a", padding: "7px 14px", borderRadius: 10, fontSize: 13, fontWeight: "bold" }}>
+                      ✅ En ligne
+                    </span>
+                  )}
+                  {currentUser.role === "admin" && (
+                    <button
+                      onClick={() => handleDelete(pub.id)}
+                      style={{ background: "#fee2e2", color: "#dc2626", border: "none", padding: "7px 14px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: "bold" }}
+                    >
+                      🗑 Supprimer
+                    </button>
+                  )}
+                </div>
               </div>
 
               {pub.photos?.length > 0 && (
