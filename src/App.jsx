@@ -877,7 +877,7 @@ export default function App() {
 
         {(currentUser.role === "admin" || currentUser.role === "referent") && (
           <button style={navBtn} onClick={() => setPage("publications")}>
-            📣 Publications (scores & photos)
+            📣 Publications (news & photos)
           </button>
         )}
 
