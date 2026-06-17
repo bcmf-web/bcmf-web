@@ -284,40 +284,107 @@ async function uploadPhotos(
   return debugLog;
 }
 
-// ── 4. Publier une news avec le score ──────────────────────────────────────
-async function publishScoreNews(
+// ── 4. Publier une actualité ───────────────────────────────────────────────
+async function publishNews(
   cookies: string,
   titre: string,
-  contenu: string
-): Promise<void> {
-  // Récupère la page de création de news pour le CSRF
-  const pageResp = await fetch(`${SR_BASE}/actualite`, {
-    headers: { "Cookie": cookies },
-  });
-  const html = await pageResp.text();
-  const csrfMatch = html.match(/name="token"\s+value="([^"]+)"/)
-                 ?? html.match(/"_token"\s*:\s*"([^"]+)"/);
-  const token = csrfMatch?.[1] ?? "";
+  chapo: string,
+  corps: string,
+  teamName: string | null,
+  illustrationUrl: string | null
+): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
 
-  const body = new URLSearchParams({
+  // Résoudre le groupe_id
+  const groupeId = teamName ? (TEAM_GROUPE_IDS[teamName] ?? null) : null;
+
+  const params = new URLSearchParams({
     titre,
-    contenu,
-    statut: "1",         // En ligne
-    en_une: "0",
-    ...(token ? { _token: token, token } : {}),
+    chapo,
+    corps,
+    methode_resume: "CHAPO",
+    resume: "",
+    illustration: "",
+    "image_path[illustration]": "",
+    "original_filename[illustration]": "",
+    "filesize[illustration]": "",
+    status: "1",           // 1 = en ligne
+    date_publication: today,
+    date_depublication: "",
+    section_et_discipline_id: "0,0",
+    submitter: "Enregistrer",
+    "form-end": "end",
   });
 
-  await fetch(`${SR_BASE}/actualite/submit`, {
+  if (groupeId) {
+    params.append("groupe_id[]", groupeId);
+  } else {
+    params.append("allGroupeCheck", "");
+  }
+
+  // Upload illustration si fournie
+  if (illustrationUrl) {
+    const imgResp = await fetch(illustrationUrl);
+    if (imgResp.ok) {
+      const blob = await imgResp.blob();
+      const filename = illustrationUrl.split("/").pop()?.split("?")[0] ?? "illustration.jpg";
+      const formData = new FormData();
+      formData.append("Filedata", blob, filename);
+      // Endpoint upload générique sportsregions
+      const uploadResp = await fetch(`${SR_BASE}/actualite/upload_illustration`, {
+        method: "POST",
+        headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+        body: formData,
+        redirect: "manual",
+      });
+      if (uploadResp.ok) {
+        const uploadJson = await uploadResp.json().catch(() => null);
+        if (uploadJson?.path) {
+          params.set("image_path[illustration]", uploadJson.path);
+          params.set("illustration", uploadJson.filename ?? filename);
+          params.set("original_filename[illustration]", filename);
+        }
+      }
+    }
+  }
+
+  // Snapshot des IDs avant création
+  const beforeResp = await fetch(`${SR_BASE}/actualite`, {
+    headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+  });
+  const beforeHtml = await beforeResp.text();
+  const beforeIds = new Set(
+    [...beforeHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10))
+  );
+
+  const resp = await fetch(`${SR_BASE}/actualite/submit`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       "Cookie": cookies,
-      "X-Requested-With": "XMLHttpRequest",
       "Referer": `${SR_BASE}/actualite`,
+      "User-Agent": "Mozilla/5.0",
+      "Origin": SR_BASE,
     },
-    body: body.toString(),
+    body: params.toString(),
     redirect: "manual",
   });
+
+  // Cas 1 : redirection directe vers l'ID
+  const location = resp.headers.get("location") ?? "";
+  const matchLoc = location.match(/actualite\/edit\/(\d+)/);
+  if (matchLoc) return parseInt(matchLoc[1], 10);
+
+  // Cas 2 : comparer avant/après
+  const afterResp = await fetch(`${SR_BASE}/actualite`, {
+    headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+  });
+  const afterHtml = await afterResp.text();
+  const afterIds = [...afterHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10));
+  const newId = afterIds.find(id => !beforeIds.has(id));
+  if (newId) return newId;
+
+  throw new Error(`Création actualité échouée (HTTP ${resp.status})`);
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
@@ -340,17 +407,33 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { album_name, photo_urls, score_us, score_them, opponent, team_name, note } =
-      await req.json();
+    const payload = await req.json();
+    const { action } = payload;
+
+    // 1. Login
+    const cookies = await loginSportsRegions();
+
+    // ── Action : publier une actualité ─────────────────────────────────────
+    if (action === "news") {
+      const { titre, chapo, corps, team_name, illustration_url } = payload;
+      if (!titre) {
+        return new Response(JSON.stringify({ error: "titre requis" }), { status: 400 });
+      }
+      const newsId = await publishNews(cookies, titre, chapo ?? "", corps ?? "", team_name ?? null, illustration_url ?? null);
+      return new Response(
+        JSON.stringify({ success: true, news_id: newsId }),
+        { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+
+    // ── Action : publier des photos (défaut) ───────────────────────────────
+    const { album_name, photo_urls, team_name } = payload;
 
     if (!album_name) {
       return new Response(JSON.stringify({ error: "album_name requis" }), { status: 400 });
     }
 
-    // 1. Login
-    const cookies = await loginSportsRegions();
-
-    // Debug : vérifier que la session est valide
+    // Vérifier que la session est valide
     const checkResp = await fetch(`${SR_BASE}/albumphoto`, {
       headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
       redirect: "manual",
@@ -360,7 +443,6 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Session invalide après login (redirect: ${checkLocation}). Vérifiez SR_EMAIL/SR_PASSWORD.`);
     }
 
-    // 2. Trouver l'album existant de l'équipe, ou en créer un nouveau
     let albumId: number;
     if (team_name) {
       const existing = await findTeamAlbum(cookies, team_name);
@@ -369,41 +451,22 @@ Deno.serve(async (req: Request) => {
       albumId = await createAlbum(cookies, album_name, team_name);
     }
 
-    // 3. Uploader les photos si présentes
     let uploadDebug: string[] = [];
     if (photo_urls?.length > 0) {
       uploadDebug = await uploadPhotos(cookies, albumId, photo_urls);
     }
 
-    // 4. Publier news avec le score si fourni
-    if (score_us != null && score_them != null && opponent) {
-      const result = score_us > score_them ? "✅ Victoire" : score_us === score_them ? "🤝 Match nul" : "❌ Défaite";
-      const titre  = `${result} — ${team_name ?? "BCMF"} ${score_us}-${score_them} ${opponent}`;
-      const contenu = note
-        ? `<p>${titre}</p><p>${note}</p>`
-        : `<p>${titre}</p>`;
-
-      await publishScoreNews(cookies, titre, contenu);
-    }
-
     return new Response(
       JSON.stringify({ success: true, album_id: albumId, photos_count: photo_urls?.length ?? 0, debug: uploadDebug }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
+      { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
     );
+
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       }
     );
   }

@@ -22,6 +22,24 @@ export async function publishToSportsRegions(pub) {
   return { success: true, album_id: data?.album_id };
 }
 
+export async function publishNewsToSportsRegions(news) {
+  const { data, error } = await supabase.functions.invoke("sync-sportsregions", {
+    body: {
+      action:           "news",
+      titre:            news.titre,
+      chapo:            news.chapo ?? "",
+      corps:            news.corps ?? "",
+      team_name:        news.team_name ?? null,
+      illustration_url: news.illustration_url ?? null,
+    },
+  });
+
+  if (error) return { success: false, error: error.message };
+  if (data?.error) return { success: false, error: data.error };
+
+  return { success: true, news_id: data?.news_id };
+}
+
 /** Génère un nom d'album : "U11 – Photos – 10/06/2026" */
 function buildAlbumName(pub) {
   const team = pub.team_name ?? "BCMF";
