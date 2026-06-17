@@ -4,7 +4,7 @@ import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
 
-const categories = ["Partenaires", "Commerces", "Restauration", "Industriels", "loisirs", "BTP"];
+const categories = ["Partenaires", "Commerces", "Restauration", "Services", "Industriels", "loisirs", "BTP"];
 
 const BUCKET = "partner-logos";
 
