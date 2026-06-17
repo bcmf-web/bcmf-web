@@ -294,97 +294,139 @@ async function publishNews(
   illustrationUrl: string | null
 ): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
-
-  // Résoudre le groupe_id
   const groupeId = teamName ? (TEAM_GROUPE_IDS[teamName] ?? null) : null;
 
-  const params = new URLSearchParams({
-    titre,
-    chapo,
-    corps,
-    methode_resume: "CHAPO",
-    resume: "",
-    illustration: "",
-    "image_path[illustration]": "",
-    "original_filename[illustration]": "",
-    "filesize[illustration]": "",
-    status: "1",           // 1 = en ligne
-    date_publication: today,
-    date_depublication: "",
-    section_et_discipline_id: "0,0",
-    submitter: "Enregistrer",
-    "form-end": "end",
-  });
+  // CKEditor attend du HTML
+  const chapoHtml = chapo ? chapo.split("\n").filter(Boolean).map(l => `<p>${l}</p>`).join("") : "";
+  const corpsHtml = corps ? corps.split("\n").filter(Boolean).map(l => `<p>${l}</p>`).join("") : "";
 
-  if (groupeId) {
-    params.append("groupe_id[]", groupeId);
-  } else {
-    params.append("allGroupeCheck", "");
+  function buildParams(id: string | null) {
+    const p = new URLSearchParams({
+      titre,
+      chapo: chapoHtml,
+      corps: corpsHtml,
+      methode_resume: "CHAPO",
+      resume: "",
+      illustration: "",
+      "image_path[illustration]": "",
+      "original_filename[illustration]": "",
+      "filesize[illustration]": "",
+      status: "1",
+      date_publication: today,
+      date_depublication: "",
+      section_et_discipline_id: "0,0",
+      submitter: "Enregistrer",
+      "form-end": "end",
+    });
+    if (id) p.set("id", id);
+    if (groupeId) { p.append("groupe_id[]", groupeId); } else { p.append("allGroupeCheck", ""); }
+    return p;
   }
 
-  // Upload illustration si fournie
-  if (illustrationUrl) {
-    const imgResp = await fetch(illustrationUrl);
-    if (imgResp.ok) {
-      const blob = await imgResp.blob();
-      const filename = illustrationUrl.split("/").pop()?.split("?")[0] ?? "illustration.jpg";
-      const formData = new FormData();
-      formData.append("Filedata", blob, filename);
-      // Endpoint upload générique sportsregions
-      const uploadResp = await fetch(`${SR_BASE}/actualite/upload_illustration`, {
-        method: "POST",
-        headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
-        body: formData,
-        redirect: "manual",
-      });
-      if (uploadResp.ok) {
-        const uploadJson = await uploadResp.json().catch(() => null);
-        if (uploadJson?.path) {
-          params.set("image_path[illustration]", uploadJson.path);
-          params.set("illustration", uploadJson.filename ?? filename);
-          params.set("original_filename[illustration]", filename);
-        }
-      }
-    }
-  }
-
-  // Snapshot des IDs avant création
-  const beforeResp = await fetch(`${SR_BASE}/actualite`, {
-    headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+  const headers = (refId?: string) => ({
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Cookie": cookies,
+    "Referer": refId ? `${SR_BASE}/actualite/edit/${refId}` : `${SR_BASE}/actualite`,
+    "User-Agent": "Mozilla/5.0",
+    "Origin": SR_BASE,
   });
+
+  // ── Étape 1 : créer l'article (titre seul) pour obtenir l'ID ──────────────
+  const createParams = new URLSearchParams({
+    titre, chapo: "", corps: "", methode_resume: "CHAPO", resume: "",
+    illustration: "", "image_path[illustration]": "", "original_filename[illustration]": "",
+    "filesize[illustration]": "", status: "2", date_publication: today,
+    date_depublication: "", section_et_discipline_id: "0,0",
+    submitter: "Enregistrer", "form-end": "end",
+  });
+  if (groupeId) { createParams.append("groupe_id[]", groupeId); } else { createParams.append("allGroupeCheck", ""); }
+
+  const beforeResp = await fetch(`${SR_BASE}/actualite`, { headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" } });
   const beforeHtml = await beforeResp.text();
-  const beforeIds = new Set(
-    [...beforeHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10))
-  );
+  const beforeIds  = new Set([...beforeHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10)));
 
-  const resp = await fetch(`${SR_BASE}/actualite/submit`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Cookie": cookies,
-      "Referer": `${SR_BASE}/actualite`,
-      "User-Agent": "Mozilla/5.0",
-      "Origin": SR_BASE,
-    },
-    body: params.toString(),
-    redirect: "manual",
+  const createResp = await fetch(`${SR_BASE}/actualite/submit`, {
+    method: "POST", headers: headers(), body: createParams.toString(), redirect: "manual",
   });
 
-  // Cas 1 : redirection directe vers l'ID
-  const location = resp.headers.get("location") ?? "";
-  const matchLoc = location.match(/actualite\/edit\/(\d+)/);
-  if (matchLoc) return parseInt(matchLoc[1], 10);
+  // Trouver le nouvel ID
+  let newsId: number | null = null;
+  const loc1 = createResp.headers.get("location") ?? "";
+  const m1   = loc1.match(/actualite\/edit\/(\d+)/);
+  if (m1) {
+    newsId = parseInt(m1[1], 10);
+  } else {
+    const afterResp = await fetch(`${SR_BASE}/actualite`, { headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" } });
+    const afterHtml = await afterResp.text();
+    const afterIds  = [...afterHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10));
+    newsId = afterIds.find(id => !beforeIds.has(id)) ?? null;
+  }
+  if (!newsId) throw new Error(`Impossible de trouver l'ID de la news créée`);
 
-  // Cas 2 : comparer avant/après
-  const afterResp = await fetch(`${SR_BASE}/actualite`, {
-    headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+  // ── Étape 2 : uploader l'illustration si fournie ──────────────────────────
+  const updateParams = buildParams(String(newsId));
+
+  if (illustrationUrl) {
+    try {
+      // Récupérer le crypted_id (token API) depuis la page de l'article
+      const editResp = await fetch(`${SR_BASE}/actualite/edit/${newsId}`, {
+        headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+      });
+      const editHtml = await editResp.text();
+      const cryptedId = editHtml.match(/crypted_id\s*[=:]\s*['"]([a-f0-9]+)['"]/)?.[1]
+                     ?? editHtml.match(/["']token["']\s*:\s*["']([a-f0-9]+)['"]/)?.[1];
+
+      const imgResp = await fetch(illustrationUrl);
+      if (imgResp.ok) {
+        const blob     = await imgResp.blob();
+        const origName = illustrationUrl.split("/").pop()?.split("?")[0] ?? "illustration.jpg";
+        const filesize = blob.size;
+
+        const formData = new FormData();
+        formData.append("Filedata", blob, origName);
+
+        const uploadHeaders: Record<string, string> = {
+          "Accept": "*/*",
+          "Referer": `${SR_BASE}/actualite/edit/${newsId}`,
+          "Origin": SR_BASE,
+          "User-Agent": "Mozilla/5.0",
+        };
+        if (cryptedId) uploadHeaders["token"] = cryptedId;
+
+        const uploadResp = await fetch(
+          `https://newsr-api.sportsregions.fr/admin/${SR_SITE_ID}/media/upload`,
+          { method: "POST", headers: uploadHeaders, body: formData }
+        );
+
+        const uploadText = await uploadResp.text().catch(() => "");
+        console.log(`[upload-illu] HTTP ${uploadResp.status} crypted=${cryptedId?.slice(0,8)} — ${uploadText.slice(0, 300)}`);
+
+        try {
+          const json = JSON.parse(uploadText);
+          // Réponse : { response: { temp_filename: "media/uploaded/sites/.../temp/xxx.jpg", original_filename: "xxx.jpg", uid: "..." } }
+          const tempPath = json.response?.temp_filename ?? "";
+          const uid      = json.response?.uid ?? "";
+          const origName = json.response?.original_filename ?? "";
+          if (tempPath) {
+            const filename = tempPath.split("/").pop() ?? "";
+            updateParams.set("illustration", filename);
+            updateParams.set("image_path[illustration]", `/${tempPath}`);
+            updateParams.set("original_filename[illustration]", origName || filename);
+            updateParams.set("filesize[illustration]", String(filesize));
+            if (uid) updateParams.set("uid[illustration]", uid);
+          }
+        } catch (_) { /* parse error, illustration ignorée */ }
+      }
+    } catch (_) { /* illustration non bloquante */ }
+  }
+
+  // ── Étape 3 : mettre à jour avec le contenu complet + publier ────────────
+  updateParams.set("askforautopublish", "1");
+  await fetch(`${SR_BASE}/actualite/submit/${newsId}?askforautopublish=1`, {
+    method: "POST", headers: headers(String(newsId)), body: updateParams.toString(), redirect: "manual",
   });
-  const afterHtml = await afterResp.text();
-  const afterIds = [...afterHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10));
-  const newId = afterIds.find(id => !beforeIds.has(id));
-  if (newId) return newId;
 
-  throw new Error(`Création actualité échouée (HTTP ${resp.status})`);
+  return newsId;
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
