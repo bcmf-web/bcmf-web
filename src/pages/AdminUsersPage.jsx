@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../services/supabaseClient.js";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { sendPushNotification } from "../services/pushNotifications.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import {
+  parseVolunteersFile,
+  validateVolunteers,
+  downloadTemplate,
+  bulkAddVolunteers,
+  exportCredentialsCSV,
+} from "../services/bulkImportVolunteers.js";
 
 
 
@@ -25,6 +32,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
   const [teams, setTeams] = useState([]);
   const [skills, setSkills] = useState([]);
   const [showTeams, setShowTeams] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkFormatError, setBulkFormatError] = useState("");
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
+  const fileInputRef = useRef(null);
 
   const pageSize = 50;
 
@@ -124,7 +137,52 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 		setSkills(data || []);
 	  }
 	}
-	
+
+	function openBulkImport() {
+	  setBulkRows([]);
+	  setBulkFormatError("");
+	  setBulkResults(null);
+	  setShowBulkImport(true);
+	}
+
+	function closeBulkImport() {
+	  setShowBulkImport(false);
+	}
+
+	async function handleBulkFileChange(e) {
+	  const file = e.target.files?.[0];
+	  if (!file) return;
+
+	  setBulkResults(null);
+	  const { volunteers, formatError } = await parseVolunteersFile(file);
+
+	  if (formatError) {
+		setBulkFormatError(formatError);
+		setBulkRows([]);
+		return;
+	  }
+
+	  setBulkFormatError("");
+	  setBulkRows(validateVolunteers(volunteers, teams.map((t) => t.name)));
+	}
+
+	async function runBulkImport() {
+	  const validRows = bulkRows.filter((r) => r.valid);
+	  if (validRows.length === 0) return;
+
+	  setBulkImporting(true);
+	  try {
+		const result = await bulkAddVolunteers(validRows);
+		setBulkResults(result.results || []);
+		await loadUsers();
+		toast(`✅ ${result.added} bénévole(s) importé(s)${result.errors ? `, ${result.errors} erreur(s)` : ""}`, result.errors ? "warning" : "success");
+	  } catch (err) {
+		toast(err.message, "error");
+	  } finally {
+		setBulkImporting(false);
+	  }
+	}
+
 	async function toggleTeam(user, team) {
 	  const currentTeams = user.teamsList || [];
 	  const alreadyLinked = currentTeams.some((t) => t.id === team.id);
@@ -258,7 +316,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
         ← Retour
       </button>
 
-      <h1>Administration des utilisateurs</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <h1>Administration des utilisateurs</h1>
+        <button style={styles.orangeButton} onClick={openBulkImport}>
+          ⬆️ Importer des bénévoles en masse
+        </button>
+      </div>
 
       {message && (
         <div
@@ -609,6 +672,144 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 				  Fermer
         </button>
 			</div>
+          </div>
+        </div>
+      )}
+
+      {showBulkImport && (
+        <div style={modalStyles.overlay}>
+          <div style={modalStyles.modal}>
+            <h2>Importer des bénévoles en masse</h2>
+
+            <p style={{ color: "#64748b" }}>
+              Fichier Excel avec les colonnes <strong>Nom, Prénom, Email, Téléphone, Équipe(s)</strong>.
+              Les bénévoles importés sont validés directement et reçoivent un mot de passe temporaire.
+            </p>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+              <button style={styles.darkButton} onClick={downloadTemplate}>
+                📄 Télécharger le modèle
+              </button>
+              <button style={styles.orangeButton} onClick={() => fileInputRef.current?.click()}>
+                📁 Choisir un fichier Excel
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                style={{ display: "none" }}
+                onChange={handleBulkFileChange}
+              />
+            </div>
+
+            {bulkFormatError && (
+              <div style={{ background: "#fdecea", color: "#c0392b", padding: 12, borderRadius: 12, marginBottom: 16 }}>
+                {bulkFormatError}
+              </div>
+            )}
+
+            {bulkRows.length > 0 && !bulkResults && (
+              <>
+                <p>
+                  <strong>{bulkRows.filter((r) => r.valid).length}</strong> ligne(s) valide(s) sur {bulkRows.length}.
+                </p>
+
+                <div style={{ ...styles.tableWrapper, maxHeight: 300, overflowY: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "2px solid #eee" }}>
+                        <th style={thStyle}>Nom</th>
+                        <th style={thStyle}>Email</th>
+                        <th style={thStyle}>Téléphone</th>
+                        <th style={thStyle}>Équipe(s)</th>
+                        <th style={thStyle}>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkRows.map((r) => (
+                        <tr key={r.rowNumber} style={{ borderBottom: "1px solid #eee" }}>
+                          <td style={tdStyle}>{r.first_name} {r.last_name}</td>
+                          <td style={tdStyle}>{r.email}</td>
+                          <td style={tdStyle}>{r.phone || "-"}</td>
+                          <td style={tdStyle}>{r.teams.join(", ") || "-"}</td>
+                          <td style={tdStyle}>
+                            {r.valid ? (
+                              <span style={{ color: "#27ae60", fontWeight: "bold" }}>OK</span>
+                            ) : (
+                              <span style={{ color: "#c0392b" }}>{r.issues.join(" · ")}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+                  <button
+                    style={bulkImporting || bulkRows.filter((r) => r.valid).length === 0 ? styles.disabledButton : styles.orangeButton}
+                    disabled={bulkImporting || bulkRows.filter((r) => r.valid).length === 0}
+                    onClick={runBulkImport}
+                  >
+                    {bulkImporting ? "Import en cours…" : `Importer ${bulkRows.filter((r) => r.valid).length} bénévole(s)`}
+                  </button>
+                  <button style={styles.darkButton} onClick={closeBulkImport}>
+                    Annuler
+                  </button>
+                </div>
+              </>
+            )}
+
+            {bulkResults && (
+              <>
+                <div style={{ background: "#d4edda", color: "#155724", padding: 12, borderRadius: 12, marginBottom: 16, fontWeight: "bold" }}>
+                  ✅ {bulkResults.filter((r) => r.status === "ok").length} bénévole(s) créé(s) — {bulkResults.filter((r) => r.status === "error").length} erreur(s)
+                </div>
+
+                <div style={{ ...styles.tableWrapper, maxHeight: 300, overflowY: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "2px solid #eee" }}>
+                        <th style={thStyle}>Email</th>
+                        <th style={thStyle}>Mot de passe temporaire</th>
+                        <th style={thStyle}>Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkResults.map((r) => (
+                        <tr key={r.email} style={{ borderBottom: "1px solid #eee" }}>
+                          <td style={tdStyle}>{r.email}</td>
+                          <td style={tdStyle}>
+                            {r.temp_password ? <code>{r.temp_password}</code> : "-"}
+                            {r.unmatched_teams && (
+                              <div style={{ color: "#f39c12", fontSize: 12 }}>
+                                Équipe(s) non trouvée(s) : {r.unmatched_teams.join(", ")}
+                              </div>
+                            )}
+                          </td>
+                          <td style={tdStyle}>
+                            {r.status === "ok" ? (
+                              <span style={{ color: "#27ae60", fontWeight: "bold" }}>Créé</span>
+                            ) : (
+                              <span style={{ color: "#c0392b" }}>{r.error}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+                  <button style={styles.darkButton} onClick={() => exportCredentialsCSV(bulkResults)}>
+                    📥 Exporter les identifiants (CSV)
+                  </button>
+                  <button style={styles.orangeButton} onClick={closeBulkImport}>
+                    Terminer
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
