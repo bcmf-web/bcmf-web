@@ -25,14 +25,15 @@ const HEADER_ALIASES = {
   first_name: ["prenom", "prénom"],
   email: ["email", "e-mail", "mail"],
   phone: ["telephone", "téléphone", "tel", "portable"],
-  teams: ["equipe", "équipe", "equipes", "équipes", "club"],
+  teams: ["equipe", "équipe", "club"],
 };
 
+// Correspondance par préfixe : accepte "Équipe(s)", "Équipes", "Téléphone portable", etc.
 function buildColumnMap(headerRow) {
   const normalized = headerRow.map(normalizeHeader);
   const map = {};
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-    const idx = normalized.findIndex((h) => aliases.includes(h));
+    const idx = normalized.findIndex((h) => aliases.some((alias) => h.startsWith(alias)));
     if (idx !== -1) map[field] = idx;
   }
   return map;
