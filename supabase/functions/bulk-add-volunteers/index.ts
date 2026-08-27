@@ -19,12 +19,17 @@ interface VolunteerInput {
 }
 
 interface VolunteerResult {
+  name: string;
   email: string;
   status: "ok" | "error";
+  has_account: boolean;
   temp_password?: string;
   unmatched_teams?: string[];
   error?: string;
 }
+
+// Domaine réservé aux profils sans email connu — aucun compte de connexion n'est créé pour ces profils.
+const NO_ACCOUNT_DOMAIN = "sans-compte.bcmf.local";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -107,31 +112,45 @@ Deno.serve(async (req: Request) => {
     const results: VolunteerResult[] = [];
 
     for (const v of volunteers) {
-      const email = (v.email ?? "").trim().toLowerCase();
+      const providedEmail = (v.email ?? "").trim().toLowerCase();
       const firstName = (v.first_name ?? "").trim();
       const lastName = (v.last_name ?? "").trim();
+      const hasEmail = providedEmail.length > 0;
+      const displayName = `${firstName} ${lastName}`.trim() || "(nom manquant)";
 
-      if (!email || !firstName || !lastName) {
-        results.push({ email: email || "(email manquant)", status: "error", error: "Nom, prénom ou email manquant" });
+      if (!firstName || !lastName) {
+        results.push({ name: displayName, email: providedEmail, status: "error", has_account: false, error: "Nom ou prénom manquant" });
         continue;
       }
 
       try {
-        const tempPassword = generateTempPassword();
+        let userId: string;
+        let email: string;
+        let tempPassword: string | undefined;
 
-        const { data: created, error: createError } = await admin.auth.admin.createUser({
-          email,
-          password: tempPassword,
-          email_confirm: true,
-        });
+        if (hasEmail) {
+          email = providedEmail;
+          tempPassword = generateTempPassword();
 
-        if (createError || !created?.user) {
-          results.push({ email, status: "error", error: createError?.message ?? "Création du compte échouée" });
-          continue;
+          const { data: created, error: createError } = await admin.auth.admin.createUser({
+            email,
+            password: tempPassword,
+            email_confirm: true,
+          });
+
+          if (createError || !created?.user) {
+            results.push({ name: displayName, email, status: "error", has_account: false, error: createError?.message ?? "Création du compte échouée" });
+            continue;
+          }
+          userId = created.user.id;
+        } else {
+          // Pas d'email connu : profil "sans compte" — pas de compte auth, juste une fiche à planifier.
+          userId = crypto.randomUUID();
+          email = `sans-email-${userId}@${NO_ACCOUNT_DOMAIN}`;
         }
 
         const { error: profileError } = await admin.from("users").insert([{
-          id: created.user.id,
+          id: userId,
           email,
           name: `${firstName} ${lastName}`,
           first_name: firstName,
@@ -143,8 +162,8 @@ Deno.serve(async (req: Request) => {
         }]);
 
         if (profileError) {
-          await admin.auth.admin.deleteUser(created.user.id);
-          results.push({ email, status: "error", error: "Profil : " + profileError.message });
+          if (hasEmail) await admin.auth.admin.deleteUser(userId);
+          results.push({ name: displayName, email, status: "error", has_account: false, error: "Profil : " + profileError.message });
           continue;
         }
 
@@ -159,18 +178,20 @@ Deno.serve(async (req: Request) => {
 
         if (matchedTeamIds.length > 0) {
           await admin.from("user_teams").insert(
-            matchedTeamIds.map((teamId) => ({ user_id: created.user.id, team_id: teamId }))
+            matchedTeamIds.map((teamId) => ({ user_id: userId, team_id: teamId }))
           );
         }
 
         results.push({
-          email,
+          name: displayName,
+          email: hasEmail ? email : "",
           status: "ok",
+          has_account: hasEmail,
           temp_password: tempPassword,
           unmatched_teams: unmatchedTeams.length > 0 ? unmatchedTeams : undefined,
         });
       } catch (err) {
-        results.push({ email, status: "error", error: (err as Error).message });
+        results.push({ name: displayName, email: providedEmail, status: "error", has_account: false, error: (err as Error).message });
       }
     }
 

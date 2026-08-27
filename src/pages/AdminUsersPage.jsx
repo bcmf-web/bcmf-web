@@ -10,6 +10,7 @@ import {
   downloadTemplate,
   bulkAddVolunteers,
   exportCredentialsCSV,
+  isPlaceholderEmail,
 } from "../services/bulkImportVolunteers.js";
 
 
@@ -462,7 +463,13 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                     <strong>{user.name}</strong>
                   </td>
 
-                  <td style={tdStyle}>{user.email}</td>
+                  <td style={tdStyle}>
+                    {isPlaceholderEmail(user.email) ? (
+                      <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Sans compte (fiche seule)</span>
+                    ) : (
+                      user.email
+                    )}
+                  </td>
 
                   <td style={tdStyle}>
                     <StatusBadge status={user.status} />
@@ -555,7 +562,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 				  </p>
 
 				  <p>
-					<strong>Email :</strong> {selectedUser.email || "-"}
+					<strong>Email :</strong>{" "}
+					{isPlaceholderEmail(selectedUser.email) ? (
+					  <em style={{ color: "#94a3b8" }}>Sans compte (fiche ajoutée sans email)</em>
+					) : (
+					  selectedUser.email || "-"
+					)}
 				  </p>
 
 				  <p>
@@ -683,7 +695,9 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
             <p style={{ color: "#64748b" }}>
               Fichier Excel avec les colonnes <strong>Nom, Prénom, Email, Téléphone, Équipe(s)</strong>.
-              Les bénévoles importés sont validés directement et reçoivent un mot de passe temporaire.
+              Nom et Prénom sont obligatoires, le reste est facultatif. Les bénévoles importés sont validés directement.
+              Ceux avec un email reçoivent un compte + mot de passe temporaire ; ceux sans email sont ajoutés comme
+              simple fiche (sans connexion possible), à compléter plus tard si besoin.
             </p>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
@@ -729,7 +743,9 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                       {bulkRows.map((r) => (
                         <tr key={r.rowNumber} style={{ borderBottom: "1px solid #eee" }}>
                           <td style={tdStyle}>{r.first_name} {r.last_name}</td>
-                          <td style={tdStyle}>{r.email}</td>
+                          <td style={tdStyle}>
+                            {r.email || <em style={{ color: "#94a3b8" }}>sans email → fiche seule</em>}
+                          </td>
                           <td style={tdStyle}>{r.phone || "-"}</td>
                           <td style={tdStyle}>{r.teams.join(", ") || "-"}</td>
                           <td style={tdStyle}>
@@ -770,17 +786,23 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                   <table style={{ width: "100%", borderCollapse: "collapse", background: "white" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "2px solid #eee" }}>
-                        <th style={thStyle}>Email</th>
-                        <th style={thStyle}>Mot de passe temporaire</th>
+                        <th style={thStyle}>Nom</th>
+                        <th style={thStyle}>Compte</th>
                         <th style={thStyle}>Statut</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bulkResults.map((r) => (
-                        <tr key={r.email} style={{ borderBottom: "1px solid #eee" }}>
-                          <td style={tdStyle}>{r.email}</td>
+                      {bulkResults.map((r, i) => (
+                        <tr key={`${r.email || r.name}-${i}`} style={{ borderBottom: "1px solid #eee" }}>
+                          <td style={tdStyle}>{r.name}</td>
                           <td style={tdStyle}>
-                            {r.temp_password ? <code>{r.temp_password}</code> : "-"}
+                            {r.has_account ? (
+                              <>
+                                {r.email} — mot de passe : <code>{r.temp_password}</code>
+                              </>
+                            ) : (
+                              <em style={{ color: "#64748b" }}>Sans connexion (fiche seule)</em>
+                            )}
                             {r.unmatched_teams && (
                               <div style={{ color: "#f39c12", fontSize: 12 }}>
                                 Équipe(s) non trouvée(s) : {r.unmatched_teams.join(", ")}

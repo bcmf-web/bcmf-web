@@ -3,6 +3,14 @@ import { supabase } from "./supabaseClient.js";
 
 const FUNCTION_URL = "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/bulk-add-volunteers";
 
+// Doit correspondre à NO_ACCOUNT_DOMAIN côté edge function bulk-add-volunteers
+const NO_ACCOUNT_DOMAIN = "sans-compte.bcmf.local";
+
+// Un bénévole importé sans email n'a pas de compte de connexion — repérable par ce domaine technique
+export function isPlaceholderEmail(email) {
+  return typeof email === "string" && email.endsWith(`@${NO_ACCOUNT_DOMAIN}`);
+}
+
 // Normalise un en-tête de colonne : minuscules, sans accents, sans espaces superflus
 function normalizeHeader(value) {
   return String(value ?? "")
@@ -43,10 +51,10 @@ export async function parseVolunteersFile(file) {
   }
 
   const columnMap = buildColumnMap(dataRows[0]);
-  if (columnMap.last_name === undefined || columnMap.first_name === undefined || columnMap.email === undefined) {
+  if (columnMap.last_name === undefined || columnMap.first_name === undefined) {
     return {
       volunteers: [],
-      formatError: "Colonnes attendues introuvables. Le fichier doit contenir au minimum : Nom, Prénom, Email.",
+      formatError: "Colonnes attendues introuvables. Le fichier doit contenir au minimum : Nom, Prénom.",
     };
   }
 
@@ -56,7 +64,7 @@ export async function parseVolunteersFile(file) {
       rowNumber: i + 2,
       last_name: String(row[columnMap.last_name] ?? "").trim(),
       first_name: String(row[columnMap.first_name] ?? "").trim(),
-      email: String(row[columnMap.email] ?? "").trim().toLowerCase(),
+      email: columnMap.email !== undefined ? String(row[columnMap.email] ?? "").trim().toLowerCase() : "",
       phone: columnMap.phone !== undefined ? String(row[columnMap.phone] ?? "").trim() : "",
       teams: teamsRaw.split(/[,;/]/).map((t) => t.trim()).filter(Boolean),
     };
@@ -74,10 +82,11 @@ export function validateVolunteers(volunteers, knownTeamNames) {
     const issues = [];
     if (!v.last_name) issues.push("Nom manquant");
     if (!v.first_name) issues.push("Prénom manquant");
-    if (!v.email) issues.push("Email manquant");
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) issues.push("Email invalide");
-    else if (emailSeen.has(v.email)) issues.push("Email en double dans le fichier");
-    emailSeen.add(v.email);
+    if (v.email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) issues.push("Email invalide");
+      else if (emailSeen.has(v.email)) issues.push("Email en double dans le fichier");
+      emailSeen.add(v.email);
+    }
 
     const unknownTeams = v.teams.filter((t) => !knownLower.has(t.toLowerCase()));
     if (unknownTeams.length > 0) issues.push(`Équipe(s) inconnue(s) : ${unknownTeams.join(", ")}`);
@@ -92,6 +101,7 @@ export function downloadTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
     ["Nom", "Prénom", "Email", "Téléphone", "Équipe(s)"],
     ["Dupont", "Marie", "marie.dupont@example.com", "0601020304", "U15F"],
+    ["Martin", "Julien", "", "0611223344", "U15F"],
   ]);
   XLSX.utils.book_append_sheet(wb, ws, "Bénévoles");
   XLSX.writeFile(wb, "modele_import_benevoles.xlsx");
@@ -128,9 +138,16 @@ export async function bulkAddVolunteers(volunteers) {
 
 // Exporte les identifiants générés (email + mot de passe temporaire) en CSV pour l'admin
 export function exportCredentialsCSV(results) {
-  const rows = [["Email", "Mot de passe temporaire", "Statut", "Détail"]];
+  const rows = [["Nom", "Email", "Mot de passe temporaire", "Compte", "Statut", "Détail"]];
   for (const r of results) {
-    rows.push([r.email, r.temp_password || "", r.status, r.error || (r.unmatched_teams ? `Équipe(s) non trouvée(s) : ${r.unmatched_teams.join(", ")}` : "")]);
+    rows.push([
+      r.name,
+      r.email || "",
+      r.temp_password || "",
+      r.has_account ? "Avec connexion" : "Sans connexion (fiche seule)",
+      r.status,
+      r.error || (r.unmatched_teams ? `Équipe(s) non trouvée(s) : ${r.unmatched_teams.join(", ")}` : ""),
+    ]);
   }
   const csv = rows.map((r) => r.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
