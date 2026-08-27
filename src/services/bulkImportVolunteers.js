@@ -25,7 +25,7 @@ const HEADER_ALIASES = {
   first_name: ["prenom", "prénom"],
   email: ["email", "e-mail", "mail"],
   phone: ["telephone", "téléphone", "tel", "portable"],
-  teams: ["equipe", "équipe", "equipes", "équipes"],
+  teams: ["equipe", "équipe", "equipes", "équipes", "club"],
 };
 
 function buildColumnMap(headerRow) {
