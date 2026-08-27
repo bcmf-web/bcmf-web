@@ -3,12 +3,12 @@ import { supabase } from "./supabaseClient.js";
 
 const FUNCTION_URL = "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/bulk-add-volunteers";
 
-// Doit correspondre à NO_ACCOUNT_DOMAIN côté edge function bulk-add-volunteers
-const NO_ACCOUNT_DOMAIN = "sans-compte.bcmf.local";
+// Doit correspondre à GENERATED_LOGIN_DOMAIN côté edge function bulk-add-volunteers
+const GENERATED_LOGIN_DOMAIN = "bcmf-crew.local";
 
-// Un bénévole importé sans email n'a pas de compte de connexion — repérable par ce domaine technique
+// Un identifiant généré (bénévole importé sans email connu) — à communiquer manuellement à l'intéressé
 export function isPlaceholderEmail(email) {
-  return typeof email === "string" && email.endsWith(`@${NO_ACCOUNT_DOMAIN}`);
+  return typeof email === "string" && email.endsWith(`@${GENERATED_LOGIN_DOMAIN}`);
 }
 
 // Normalise un en-tête de colonne : minuscules, sans accents, sans espaces superflus
@@ -109,7 +109,7 @@ export function downloadTemplate() {
 }
 
 // Appelle l'edge function d'import en masse
-export async function bulkAddVolunteers(volunteers) {
+export async function bulkAddVolunteers(volunteers, defaultPassword) {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
 
@@ -120,6 +120,7 @@ export async function bulkAddVolunteers(volunteers) {
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
+      default_password: defaultPassword,
       volunteers: volunteers.map((v) => ({
         first_name: v.first_name,
         last_name: v.last_name,
@@ -137,15 +138,15 @@ export async function bulkAddVolunteers(volunteers) {
   return json;
 }
 
-// Exporte les identifiants générés (email + mot de passe temporaire) en CSV pour l'admin
-export function exportCredentialsCSV(results) {
-  const rows = [["Nom", "Email", "Mot de passe temporaire", "Compte", "Statut", "Détail"]];
+// Exporte les identifiants (email + mot de passe générique) en CSV pour l'admin
+export function exportCredentialsCSV(results, defaultPassword) {
+  const rows = [["Nom", "Identifiant (email)", "Mot de passe", "Identifiant généré", "Statut", "Détail"]];
   for (const r of results) {
     rows.push([
       r.name,
       r.email || "",
-      r.temp_password || "",
-      r.has_account ? "Avec connexion" : "Sans connexion (fiche seule)",
+      r.status === "ok" ? defaultPassword : "",
+      r.generated_login ? "Oui (à communiquer)" : "Non (email réel)",
       r.status,
       r.error || (r.unmatched_teams ? `Équipe(s) non trouvée(s) : ${r.unmatched_teams.join(", ")}` : ""),
     ]);

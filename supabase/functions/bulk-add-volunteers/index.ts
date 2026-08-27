@@ -1,5 +1,5 @@
 // Supabase Edge Function : bulk-add-volunteers
-// Crée en masse des comptes bénévoles (auth + profil + équipes) avec un mot de passe temporaire.
+// Crée en masse des comptes bénévoles (auth + profil + équipes) avec un mot de passe générique commun.
 // Réservé aux admins — vérifie le rôle de l'appelant via son JWT avant toute création.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -22,24 +22,27 @@ interface VolunteerResult {
   name: string;
   email: string;
   status: "ok" | "error";
-  has_account: boolean;
-  temp_password?: string;
+  generated_login: boolean;
   unmatched_teams?: string[];
   error?: string;
 }
 
-// Domaine réservé aux profils sans email connu — aucun compte de connexion n'est créé pour ces profils.
-const NO_ACCOUNT_DOMAIN = "sans-compte.bcmf.local";
+// Domaine technique utilisé pour générer un identifiant de connexion quand aucun email réel n'est connu.
+const GENERATED_LOGIN_DOMAIN = "bcmf-crew.local";
 
-function generateTempPassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let pwd = "";
-  const bytes = new Uint8Array(12);
-  crypto.getRandomValues(bytes);
-  for (let i = 0; i < bytes.length; i++) {
-    pwd += chars[bytes[i] % chars.length];
-  }
-  return pwd;
+function normalizeForSlug(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
+}
+
+function generateLoginEmail(firstName: string, lastName: string): string {
+  const slug = normalizeForSlug(`${firstName}.${lastName}`) || "benevole";
+  const suffix = crypto.randomUUID().slice(0, 6);
+  return `${slug}.${suffix}@${GENERATED_LOGIN_DOMAIN}`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -92,7 +95,14 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json().catch(() => ({}));
     const volunteers: VolunteerInput[] = Array.isArray(body.volunteers) ? body.volunteers : [];
+    const defaultPassword: string = String(body.default_password ?? "");
 
+    if (defaultPassword.length < 6) {
+      return new Response(JSON.stringify({ error: "Le mot de passe générique doit contenir au moins 6 caractères" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (volunteers.length === 0) {
       return new Response(JSON.stringify({ error: "Aucun bénévole fourni" }), {
         status: 400,
@@ -115,39 +125,28 @@ Deno.serve(async (req: Request) => {
       const providedEmail = (v.email ?? "").trim().toLowerCase();
       const firstName = (v.first_name ?? "").trim();
       const lastName = (v.last_name ?? "").trim();
-      const hasEmail = providedEmail.length > 0;
+      const hasRealEmail = providedEmail.length > 0;
       const displayName = `${firstName} ${lastName}`.trim() || "(nom manquant)";
 
       if (!firstName || !lastName) {
-        results.push({ name: displayName, email: providedEmail, status: "error", has_account: false, error: "Nom ou prénom manquant" });
+        results.push({ name: displayName, email: providedEmail, status: "error", generated_login: false, error: "Nom ou prénom manquant" });
         continue;
       }
 
       try {
-        let userId: string;
-        let email: string;
-        let tempPassword: string | undefined;
+        const email = hasRealEmail ? providedEmail : generateLoginEmail(firstName, lastName);
 
-        if (hasEmail) {
-          email = providedEmail;
-          tempPassword = generateTempPassword();
+        const { data: created, error: createError } = await admin.auth.admin.createUser({
+          email,
+          password: defaultPassword,
+          email_confirm: true,
+        });
 
-          const { data: created, error: createError } = await admin.auth.admin.createUser({
-            email,
-            password: tempPassword,
-            email_confirm: true,
-          });
-
-          if (createError || !created?.user) {
-            results.push({ name: displayName, email, status: "error", has_account: false, error: createError?.message ?? "Création du compte échouée" });
-            continue;
-          }
-          userId = created.user.id;
-        } else {
-          // Pas d'email connu : profil "sans compte" — pas de compte auth, juste une fiche à planifier.
-          userId = crypto.randomUUID();
-          email = `sans-email-${userId}@${NO_ACCOUNT_DOMAIN}`;
+        if (createError || !created?.user) {
+          results.push({ name: displayName, email, status: "error", generated_login: !hasRealEmail, error: createError?.message ?? "Création du compte échouée" });
+          continue;
         }
+        const userId = created.user.id;
 
         const { error: profileError } = await admin.from("users").insert([{
           id: userId,
@@ -162,8 +161,8 @@ Deno.serve(async (req: Request) => {
         }]);
 
         if (profileError) {
-          if (hasEmail) await admin.auth.admin.deleteUser(userId);
-          results.push({ name: displayName, email, status: "error", has_account: false, error: "Profil : " + profileError.message });
+          await admin.auth.admin.deleteUser(userId);
+          results.push({ name: displayName, email, status: "error", generated_login: !hasRealEmail, error: "Profil : " + profileError.message });
           continue;
         }
 
@@ -184,14 +183,13 @@ Deno.serve(async (req: Request) => {
 
         results.push({
           name: displayName,
-          email: hasEmail ? email : "",
+          email,
           status: "ok",
-          has_account: hasEmail,
-          temp_password: tempPassword,
+          generated_login: !hasRealEmail,
           unmatched_teams: unmatchedTeams.length > 0 ? unmatchedTeams : undefined,
         });
       } catch (err) {
-        results.push({ name: displayName, email: providedEmail, status: "error", has_account: false, error: (err as Error).message });
+        results.push({ name: displayName, email: providedEmail, status: "error", generated_login: !hasRealEmail, error: (err as Error).message });
       }
     }
 

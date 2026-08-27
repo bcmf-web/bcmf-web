@@ -38,6 +38,8 @@ export default function AdminUsersPage({ currentUser, onBack }) {
   const [bulkFormatError, setBulkFormatError] = useState("");
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkResults, setBulkResults] = useState(null);
+  const [bulkPassword, setBulkPassword] = useState("");
+  const [showBulkPassword, setShowBulkPassword] = useState(false);
   const fileInputRef = useRef(null);
 
   const pageSize = 50;
@@ -143,6 +145,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 	  setBulkRows([]);
 	  setBulkFormatError("");
 	  setBulkResults(null);
+	  setBulkPassword("");
 	  setShowBulkImport(true);
 	}
 
@@ -169,11 +172,11 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
 	async function runBulkImport() {
 	  const validRows = bulkRows.filter((r) => r.valid);
-	  if (validRows.length === 0) return;
+	  if (validRows.length === 0 || bulkPassword.trim().length < 6) return;
 
 	  setBulkImporting(true);
 	  try {
-		const result = await bulkAddVolunteers(validRows);
+		const result = await bulkAddVolunteers(validRows, bulkPassword.trim());
 		setBulkResults(result.results || []);
 		await loadUsers();
 		toast(`✅ ${result.added} bénévole(s) importé(s)${result.errors ? `, ${result.errors} erreur(s)` : ""}`, result.errors ? "warning" : "success");
@@ -465,7 +468,9 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
                   <td style={tdStyle}>
                     {isPlaceholderEmail(user.email) ? (
-                      <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Sans compte (fiche seule)</span>
+                      <span style={{ color: "#94a3b8", fontStyle: "italic" }} title={user.email}>
+                        Identifiant généré
+                      </span>
                     ) : (
                       user.email
                     )}
@@ -564,7 +569,9 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 				  <p>
 					<strong>Email :</strong>{" "}
 					{isPlaceholderEmail(selectedUser.email) ? (
-					  <em style={{ color: "#94a3b8" }}>Sans compte (fiche ajoutée sans email)</em>
+					  <em style={{ color: "#94a3b8" }}>
+						Identifiant technique généré ({selectedUser.email}) — pas un email réel, importé sans email connu
+					  </em>
 					) : (
 					  selectedUser.email || "-"
 					)}
@@ -695,10 +702,26 @@ export default function AdminUsersPage({ currentUser, onBack }) {
 
             <p style={{ color: "#64748b" }}>
               Fichier Excel avec les colonnes <strong>Nom, Prénom, Email, Téléphone, Équipe(s)</strong>.
-              Nom et Prénom sont obligatoires, le reste est facultatif. Les bénévoles importés sont validés directement.
-              Ceux avec un email reçoivent un compte + mot de passe temporaire ; ceux sans email sont ajoutés comme
-              simple fiche (sans connexion possible), à compléter plus tard si besoin.
+              Nom et Prénom sont obligatoires, le reste est facultatif. Chaque bénévole importé reçoit un compte
+              avec le mot de passe générique ci-dessous. Si l'email est manquant, un identifiant technique est
+              généré automatiquement — à communiquer à l'intéressé le jour où il veut se connecter.
             </p>
+
+            <label style={{ fontWeight: "bold", display: "block", marginBottom: 6 }}>
+              Mot de passe générique pour ce lot (identique pour tous)
+            </label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+              <input
+                type={showBulkPassword ? "text" : "password"}
+                value={bulkPassword}
+                onChange={(e) => setBulkPassword(e.target.value)}
+                placeholder="Au moins 6 caractères"
+                style={{ ...styles.input, flex: "1 1 220px" }}
+              />
+              <button style={styles.darkButton} onClick={() => setShowBulkPassword((v) => !v)}>
+                {showBulkPassword ? "🙈 Cacher" : "👁️ Afficher"}
+              </button>
+            </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
               <button style={styles.darkButton} onClick={downloadTemplate}>
@@ -744,7 +767,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                         <tr key={r.rowNumber} style={{ borderBottom: "1px solid #eee" }}>
                           <td style={tdStyle}>{r.first_name} {r.last_name}</td>
                           <td style={tdStyle}>
-                            {r.email || <em style={{ color: "#94a3b8" }}>sans email → fiche seule</em>}
+                            {r.email || <em style={{ color: "#94a3b8" }}>sans email → identifiant généré</em>}
                           </td>
                           <td style={tdStyle}>{r.phone || "-"}</td>
                           <td style={tdStyle}>{r.teams.join(", ") || "-"}</td>
@@ -761,10 +784,18 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                   </table>
                 </div>
 
+                {bulkPassword.trim().length > 0 && bulkPassword.trim().length < 6 && (
+                  <p style={{ color: "#c0392b" }}>Le mot de passe générique doit contenir au moins 6 caractères.</p>
+                )}
+
                 <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
                   <button
-                    style={bulkImporting || bulkRows.filter((r) => r.valid).length === 0 ? styles.disabledButton : styles.orangeButton}
-                    disabled={bulkImporting || bulkRows.filter((r) => r.valid).length === 0}
+                    style={
+                      bulkImporting || bulkRows.filter((r) => r.valid).length === 0 || bulkPassword.trim().length < 6
+                        ? styles.disabledButton
+                        : styles.orangeButton
+                    }
+                    disabled={bulkImporting || bulkRows.filter((r) => r.valid).length === 0 || bulkPassword.trim().length < 6}
                     onClick={runBulkImport}
                   >
                     {bulkImporting ? "Import en cours…" : `Importer ${bulkRows.filter((r) => r.valid).length} bénévole(s)`}
@@ -787,7 +818,7 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "2px solid #eee" }}>
                         <th style={thStyle}>Nom</th>
-                        <th style={thStyle}>Compte</th>
+                        <th style={thStyle}>Identifiant de connexion</th>
                         <th style={thStyle}>Statut</th>
                       </tr>
                     </thead>
@@ -796,12 +827,15 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                         <tr key={`${r.email || r.name}-${i}`} style={{ borderBottom: "1px solid #eee" }}>
                           <td style={tdStyle}>{r.name}</td>
                           <td style={tdStyle}>
-                            {r.has_account ? (
+                            {r.status === "ok" && (
                               <>
-                                {r.email} — mot de passe : <code>{r.temp_password}</code>
+                                <code>{r.email}</code>
+                                {r.generated_login && (
+                                  <div style={{ color: "#f39c12", fontSize: 12 }}>
+                                    Identifiant généré (pas un email réel) — à communiquer avec le mot de passe
+                                  </div>
+                                )}
                               </>
-                            ) : (
-                              <em style={{ color: "#64748b" }}>Sans connexion (fiche seule)</em>
                             )}
                             {r.unmatched_teams && (
                               <div style={{ color: "#f39c12", fontSize: 12 }}>
@@ -822,8 +856,12 @@ export default function AdminUsersPage({ currentUser, onBack }) {
                   </table>
                 </div>
 
+                <p style={{ color: "#64748b" }}>
+                  Mot de passe utilisé pour tous : <code>{bulkPassword}</code>
+                </p>
+
                 <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
-                  <button style={styles.darkButton} onClick={() => exportCredentialsCSV(bulkResults)}>
+                  <button style={styles.darkButton} onClick={() => exportCredentialsCSV(bulkResults, bulkPassword)}>
                     📥 Exporter les identifiants (CSV)
                   </button>
                   <button style={styles.orangeButton} onClick={closeBulkImport}>
