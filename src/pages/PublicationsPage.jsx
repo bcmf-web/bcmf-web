@@ -290,14 +290,16 @@ export default function PublicationsPage({ currentUser, onBack }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={onBack} style={styles.backButton}>← Retour</button>
         <h2 style={{ margin: 0, color: GREEN_DARK, fontSize: isMobile ? 20 : 26 }}>📣 Publications</h2>
-        <span style={{ marginLeft: "auto" }}>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{ background: GREEN, color: "white", border: "none", padding: "10px 20px", borderRadius: 12, fontWeight: "bold", cursor: "pointer", fontSize: 14 }}
-          >
-            {showForm ? "Annuler" : tab === "news" ? "+ Nouvelle actualité" : "+ Nouvelle publication"}
-          </button>
-        </span>
+        {(tab === "photos" || isAdmin) && (
+          <span style={{ marginLeft: "auto" }}>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              style={{ background: GREEN, color: "white", border: "none", padding: "10px 20px", borderRadius: 12, fontWeight: "bold", cursor: "pointer", fontSize: 14 }}
+            >
+              {showForm ? "Annuler" : tab === "news" ? "+ Nouvelle actualité" : "+ Nouvelle publication"}
+            </button>
+          </span>
+        )}
       </div>
 
       {/* Onglets */}

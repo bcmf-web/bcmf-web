@@ -297,5 +297,35 @@ USING (
 );
 
 -- ============================================================
+-- 12. TABLE: news
+-- ============================================================
+ALTER TABLE news ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "news_select" ON news;
+DROP POLICY IF EXISTS "news_insert" ON news;
+DROP POLICY IF EXISTS "news_update" ON news;
+DROP POLICY IF EXISTS "news_delete" ON news;
+
+-- Tout utilisateur connecté peut lire les actualités
+CREATE POLICY "news_select"
+ON news FOR SELECT TO authenticated
+USING (true);
+
+-- Seul un admin peut publier une actualité
+CREATE POLICY "news_insert"
+ON news FOR INSERT TO authenticated
+WITH CHECK ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+-- Seul un admin peut modifier une actualité
+CREATE POLICY "news_update"
+ON news FOR UPDATE TO authenticated
+USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+-- Seul un admin peut supprimer une actualité
+CREATE POLICY "news_delete"
+ON news FOR DELETE TO authenticated
+USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+-- ============================================================
 -- FIN — Toutes les policies sont en place
 -- ============================================================
