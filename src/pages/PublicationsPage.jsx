@@ -290,7 +290,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={onBack} style={styles.backButton}>← Retour</button>
         <h2 style={{ margin: 0, color: GREEN_DARK, fontSize: isMobile ? 20 : 26 }}>📣 Publications</h2>
-        {(tab === "photos" || isAdmin) && (
+        {((tab === "photos" && (isAdmin || isReferent)) || (tab === "news" && isAdmin)) && (
           <span style={{ marginLeft: "auto" }}>
             <button
               onClick={() => setShowForm(!showForm)}
@@ -321,7 +321,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
       </div>
 
       {/* ── Formulaire Photos ── */}
-      {showForm && tab === "photos" && (
+      {showForm && tab === "photos" && (isAdmin || isReferent) && (
         <form onSubmit={handlePhotoSubmit} style={formStyle}>
           <h3 style={{ margin: "0 0 18px", color: GREEN_DARK }}>Nouvelle publication photos</h3>
           <div style={{ display: "grid", gap: 14 }}>
