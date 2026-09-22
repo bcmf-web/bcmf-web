@@ -34,7 +34,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
 
   const defaultTeam = userTeamNames.length === 1 ? userTeamNames[0] : "";
 
-  const emptyPhoto = { team_name: defaultTeam, files: [] };
+  const emptyPhoto = { team_name: defaultTeam, files: [], caption: "" };
   const emptyNews  = { titre: "", chapo: "", corps: "", team_name: defaultTeam, illustration: null };
 
   const [photoForm, setPhotoForm]     = useState(emptyPhoto);
@@ -63,12 +63,87 @@ export default function PublicationsPage({ currentUser, onBack }) {
   function handleFileChange(e) {
     const files = Array.from(e.target.files);
     setPhotoForm((f) => ({ ...f, files }));
-    setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
   }
 
   function removeFile(index) {
     setPhotoForm((f) => ({ ...f, files: f.files.filter((_, i) => i !== index) }));
-    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Régénère les aperçus (avec légende incrustée si renseignée) à chaque changement de fichiers/légende
+  useEffect(() => {
+    if (photoForm.files.length === 0) { setPreviewUrls([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const caption = photoForm.caption.trim();
+      const rendered = await Promise.all(
+        photoForm.files.map((file) => (caption ? burnCaption(file, caption) : Promise.resolve(file)))
+      );
+      if (cancelled) return;
+      setPreviewUrls(rendered.map((file) => URL.createObjectURL(file)));
+    }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [photoForm.files, photoForm.caption]);
+
+  // Incruste un texte de légende (fond semi-transparent + texte blanc) en bas de l'image
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload  = () => { URL.revokeObjectURL(img.src); resolve(img); };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function burnCaption(file, caption) {
+    const img = await loadImage(file);
+    const canvas = document.createElement("canvas");
+    canvas.width  = img.naturalWidth  || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const fontSize = Math.max(22, Math.round(canvas.height * 0.045));
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    ctx.textAlign = "center";
+
+    // Découpe le texte en lignes si trop large
+    const maxWidth = canvas.width * 0.9;
+    const words = caption.split(/\s+/);
+    const lines = [];
+    let current = "";
+    for (const word of words) {
+      const test = current ? `${current} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+
+    const lineHeight = fontSize * 1.3;
+    const padding    = fontSize * 0.6;
+    const barHeight  = lines.length * lineHeight + padding * 2;
+
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
+    lines.forEach((line, i) => {
+      const y = canvas.height - barHeight + padding + lineHeight * i + lineHeight / 2;
+      ctx.fillText(line, canvas.width / 2, y);
+    });
+
+    const jpegName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => resolve(new File([blob], jpegName, { type: "image/jpeg" })),
+        "image/jpeg",
+        0.92
+      );
+    });
   }
 
   async function uploadPhotos(files, pubId) {
@@ -98,7 +173,12 @@ export default function PublicationsPage({ currentUser, onBack }) {
 
     if (error) { alert("Erreur : " + error.message); setSubmitting(false); return; }
 
-    const photoUrls = await uploadPhotos(photoForm.files, data.id);
+    const caption = photoForm.caption.trim();
+    const filesToUpload = caption
+      ? await Promise.all(photoForm.files.map((file) => burnCaption(file, caption)))
+      : photoForm.files;
+
+    const photoUrls = await uploadPhotos(filesToUpload, data.id);
     await supabase.from("publications").update({ photos: photoUrls }).eq("id", data.id);
 
     setPublications((prev) => [{ ...data, photos: photoUrls }, ...prev]);
@@ -260,17 +340,31 @@ export default function PublicationsPage({ currentUser, onBack }) {
                 📸 Cliquer pour ajouter des photos
               </div>
               <input ref={fileInputRef} type="file" multiple accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
-              {previewUrls.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
+            </div>
+            <div>
+              <label style={labelStyle}>Légende (optionnelle, ex : score du match)</label>
+              <input
+                type="text"
+                value={photoForm.caption}
+                onChange={(e) => setPhotoForm((f) => ({ ...f, caption: e.target.value }))}
+                placeholder="Ex : BCMF 3 - 1 Adversaire"
+                style={inputStyle}
+              />
+              <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Incrustée directement sur la photo lors de la publication.</div>
+            </div>
+            {previewUrls.length > 0 && (
+              <div>
+                <label style={labelStyle}>Aperçu</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {previewUrls.map((url, i) => (
                     <div key={i} style={{ position: "relative" }}>
-                      <img src={url} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 10 }} />
+                      <img src={url} alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: 10 }} />
                       <button type="button" onClick={() => removeFile(i)} style={{ position: "absolute", top: -6, right: -6, background: "#ef4444", color: "white", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontWeight: "bold", fontSize: 12, lineHeight: "22px" }}>✕</button>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           <button type="submit" disabled={submitting} style={submitBtnStyle(submitting, isMobile)}>
             {submitting ? "Publication en cours..." : "Publier"}
