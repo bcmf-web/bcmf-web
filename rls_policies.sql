@@ -327,5 +327,67 @@ ON news FOR DELETE TO authenticated
 USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
 
 -- ============================================================
+-- 13. TABLE: publications
+-- ============================================================
+ALTER TABLE publications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "publications_select" ON publications;
+DROP POLICY IF EXISTS "publications_insert" ON publications;
+DROP POLICY IF EXISTS "publications_update" ON publications;
+DROP POLICY IF EXISTS "publications_delete" ON publications;
+
+-- Tout utilisateur connecté peut voir les publications
+CREATE POLICY "publications_select"
+ON publications FOR SELECT TO authenticated
+USING (true);
+
+-- Admin et référent peuvent publier des photos (pas les bénévoles)
+CREATE POLICY "publications_insert"
+ON publications FOR INSERT TO authenticated
+WITH CHECK (
+  (SELECT role FROM users WHERE id = auth.uid()) IN ('admin', 'referent')
+);
+
+-- Admin et référent peuvent modifier (ex : passage à synced=true après mise en ligne)
+CREATE POLICY "publications_update"
+ON publications FOR UPDATE TO authenticated
+USING (
+  (SELECT role FROM users WHERE id = auth.uid()) IN ('admin', 'referent')
+);
+
+-- Seul un admin peut supprimer une publication
+CREATE POLICY "publications_delete"
+ON publications FOR DELETE TO authenticated
+USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+-- ============================================================
+-- 14. STORAGE: bcmf-media (photos publications + illustrations news)
+-- ============================================================
+DROP POLICY IF EXISTS "bcmf_media_select" ON storage.objects;
+DROP POLICY IF EXISTS "bcmf_media_insert" ON storage.objects;
+DROP POLICY IF EXISTS "bcmf_media_delete" ON storage.objects;
+
+-- Lecture publique des photos/illustrations
+CREATE POLICY "bcmf_media_select"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'bcmf-media');
+
+-- Admin et référent peuvent uploader
+CREATE POLICY "bcmf_media_insert"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'bcmf-media'
+  AND (SELECT role FROM users WHERE id = auth.uid()) IN ('admin', 'referent')
+);
+
+-- Seul un admin peut supprimer un fichier
+CREATE POLICY "bcmf_media_delete"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'bcmf-media'
+  AND (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+);
+
+-- ============================================================
 -- FIN — Toutes les policies sont en place
 -- ============================================================
