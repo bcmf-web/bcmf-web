@@ -38,6 +38,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transform: scale(.8);
     opacity: 0;
     animation: fadeIn 1.6s ease forwards;
   }
@@ -72,7 +73,7 @@
     transform: translate(-50%, -50%) scale(.7);
     opacity: 0;
     filter: drop-shadow(0 6px 28px rgba(0,0,0,.55));
-    animation: logoIn 5.4s cubic-bezier(.5,0,.4,1) .9s forwards;
+    animation: logoIn 7s cubic-bezier(.5,0,.4,1) .9s forwards;
   }
   .logo img { width: 100%; display: block; }
 
@@ -135,7 +136,9 @@
 
 <script>
   var REDIRECT_URL = "https://bcmf.sportsregions.fr";
-  var MAX_MS = 7000; // animation courte type "flash" — marge large sous les 10s max
+  var MAX_MS = 8400; // + 600ms de fondu = redirection vers ~9s
+  var CLIP_START = 4; // ne garder que le passage entre 4s et 8s de la vidéo source
+  var CLIP_END   = 8;
   var redirected = false;
 
   var video   = document.getElementById("bgVideo");
@@ -146,6 +149,14 @@
   setTimeout(function () {
     if (video.readyState === 0) document.body.classList.add("no-video");
   }, 1000);
+
+  // Ne joue que l'extrait 4s→8s de la vidéo, en boucle sur cet extrait
+  video.addEventListener("loadedmetadata", function () {
+    try { video.currentTime = CLIP_START; } catch (e) {}
+  });
+  video.addEventListener("timeupdate", function () {
+    if (video.currentTime >= CLIP_END) video.currentTime = CLIP_START;
+  });
 
   function goToSportsRegions() {
     if (redirected) return;
