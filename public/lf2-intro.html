@@ -72,6 +72,7 @@
     transform: translate(-50%, -50%) scale(.7);
     opacity: 0;
     filter: drop-shadow(0 6px 28px rgba(0,0,0,.55));
+    --logo-final-scale: 20; /* repli — recalculé précisément en JS au chargement */
     animation: logoIn 7s cubic-bezier(.5,0,.4,1) .9s forwards;
   }
   .logo img { width: 100%; display: block; }
@@ -130,7 +131,7 @@
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
     22%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     45%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(30); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(var(--logo-final-scale)); }
   }
   @keyframes drift {
     0%, 100% { background-position: 50% 50%; }
@@ -163,6 +164,21 @@
 
   var video   = document.getElementById("bgVideo");
   var fadeOut = document.getElementById("fadeOut");
+  var logoEl  = document.querySelector(".logo");
+  var logoImg = logoEl.querySelector("img");
+
+  // Calcule le facteur de zoom exact pour que le logo s'arrête pile à la
+  // taille de l'écran (ni plus petit, ni en dépassement au-delà du cadre).
+  function setLogoFinalScale() {
+    var naturalW = logoImg.naturalWidth, naturalH = logoImg.naturalHeight;
+    if (!naturalW || !naturalH) return;
+    var baseW = Math.min(window.innerWidth * 0.38, 190); // suit le CSS: min(38vw, 190px)
+    var baseH = baseW * (naturalH / naturalW);
+    var scale = Math.max(window.innerWidth / baseW, window.innerHeight / baseH);
+    logoEl.style.setProperty("--logo-final-scale", scale.toFixed(2));
+  }
+  if (logoImg.complete) setLogoFinalScale();
+  else logoImg.addEventListener("load", setLogoFinalScale);
 
   // Pas de fichier vidéo déposé (ou erreur de lecture) → fond dégradé de secours
   video.addEventListener("error", function () { document.body.classList.add("no-video"); }, true);
