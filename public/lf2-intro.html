@@ -63,6 +63,16 @@
     pointer-events: none;
   }
 
+  /* Fondu vert aux couleurs du club, progressif pendant le zoom du logo */
+  .green-wash {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(160deg, #16a34a 0%, #14532d 100%);
+    opacity: 0;
+    pointer-events: none;
+    animation: greenWashIn 7s ease .9s forwards;
+  }
+
   /* ── Logo : apparition au centre puis zoom jusqu'à couvrir toute la page ── */
   .logo {
     position: fixed;
@@ -133,6 +143,10 @@
     45%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 1; transform: translate(-50%, -50%) scale(var(--logo-final-scale)); }
   }
+  @keyframes greenWashIn {
+    0%, 45% { opacity: 0; }
+    100%    { opacity: .82; }
+  }
   @keyframes drift {
     0%, 100% { background-position: 50% 50%; }
     50%      { background-position: 55% 45%; }
@@ -146,6 +160,7 @@
   </video>
   <div id="fallbackBg"></div>
   <div class="vignette"></div>
+  <div class="green-wash"></div>
 
   <div class="logo">
     <img src="logo-bcmf.svg" alt="BCMF" />
