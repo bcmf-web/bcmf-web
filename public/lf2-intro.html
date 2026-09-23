@@ -189,7 +189,7 @@
   // l'image vidéo), réduite de 30% sur demande pour un rendu moins massif.
   var VIDEO_LOGO_WIDTH_RATIO = 0.61;
   var VIDEO_DISPLAY_SCALE    = 0.8; // suit le CSS: #bgVideo { transform: scale(.8) }
-  var FINAL_SIZE_ADJUST      = 0.7; // -30%
+  var FINAL_SIZE_ADJUST      = 0.35; // -30% puis encore -50%
   function setLogoFinalScale() {
     var naturalW = logoImg.naturalWidth, naturalH = logoImg.naturalHeight;
     if (!naturalW || !naturalH) return;
