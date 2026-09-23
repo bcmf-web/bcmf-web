@@ -202,7 +202,18 @@
   // quel que soit l'ordre/la vitesse de chargement sur le poste du visiteur.
   setLogoFinalScale();
   logoImg.addEventListener("load", setLogoFinalScale);
-  window.addEventListener("load", setLogoFinalScale);
+
+  // Une fois le zoom terminé, on fige la taille en dur (transform statique)
+  // et on arrête l'animation : plus aucun recalcul tardif de
+  // --logo-final-scale (image lente à charger, etc.) ne peut alors faire
+  // "sauter" la taille du logo juste avant la redirection.
+  logoEl.addEventListener("animationend", function (e) {
+    if (e.animationName !== "logoIn") return;
+    var cs = getComputedStyle(logoEl);
+    logoEl.style.transform  = cs.transform;
+    logoEl.style.opacity    = cs.opacity;
+    logoEl.style.animation  = "none";
+  });
 
   // Pas de fichier vidéo déposé (ou erreur de lecture) → fond dégradé de secours
   video.addEventListener("error", function () { document.body.classList.add("no-video"); }, true);
