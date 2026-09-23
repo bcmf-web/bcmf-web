@@ -72,7 +72,7 @@
     transform: translate(-50%, -50%) scale(.7);
     opacity: 0;
     filter: drop-shadow(0 6px 28px rgba(0,0,0,.55));
-    --logo-final-scale: 20; /* repli — recalculé précisément en JS au chargement */
+    --logo-final-scale: 10; /* repli — recalculé précisément en JS au chargement */
     animation: logoIn 7s cubic-bezier(.5,0,.4,1) .9s forwards;
   }
   .logo img { width: 100%; display: block; }
@@ -167,14 +167,16 @@
   var logoEl  = document.querySelector(".logo");
   var logoImg = logoEl.querySelector("img");
 
-  // Calcule le facteur de zoom exact pour que le logo s'arrête pile à la
-  // taille de l'écran (ni plus petit, ni en dépassement au-delà du cadre).
+  // Calcule le facteur de zoom qui couvrirait tout l'écran, puis n'en
+  // garde que la moitié (zoom max réduit de 50%, sur demande).
+  var ZOOM_MAX_RATIO = 0.5;
   function setLogoFinalScale() {
     var naturalW = logoImg.naturalWidth, naturalH = logoImg.naturalHeight;
     if (!naturalW || !naturalH) return;
     var baseW = Math.min(window.innerWidth * 0.38, 190); // suit le CSS: min(38vw, 190px)
     var baseH = baseW * (naturalH / naturalW);
-    var scale = Math.max(window.innerWidth / baseW, window.innerHeight / baseH);
+    var coverScale = Math.max(window.innerWidth / baseW, window.innerHeight / baseH);
+    var scale = coverScale * ZOOM_MAX_RATIO;
     logoEl.style.setProperty("--logo-final-scale", scale.toFixed(2));
   }
   if (logoImg.complete) setLogoFinalScale();
