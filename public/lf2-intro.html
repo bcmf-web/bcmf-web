@@ -10,244 +10,149 @@
   Pour ajouter la vraie vidéo d'actions LF2 :
   dépose un fichier nommé "lf2-video.mp4" dans ce même dossier (public/),
   puis recharge la page. Formats conseillés : mp4 (H.264), < 15 Mo,
-  cadrage vertical ou carré pour un rendu optimal sur mobile.
-  Tant qu'aucun fichier n'est présent, un visuel de secours animé
-  (ballon + logo) s'affiche automatiquement à la place.
+  cadrage 16:9 ou plein écran, sans son ou avec son (la vidéo démarre
+  muette pour l'autoplay, le son peut être activé par l'utilisateur
+  seulement si on ajoute un bouton — pas fait ici, volontairement sobre).
+  Tant qu'aucun fichier n'est présent, un fond dégradé animé s'affiche
+  à la place, le logo reste identique.
 -->
 <!-- Filet de sécurité si JS est désactivé : redirection forcée à 10s -->
 <meta http-equiv="refresh" content="10;url=https://bcmf.sportsregions.fr" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --green:       #16a34a;
-    --green-dark:  #14532d;
-    --green-dark2: #052e16;
-    --green-light: #86efac;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
     height: 100%;
     overflow: hidden;
+    background: #000;
   }
 
   body {
-    font-family: "Montserrat", sans-serif;
-    background: radial-gradient(ellipse at 50% 0%, var(--green-dark) 0%, var(--green-dark2) 70%);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
     position: relative;
   }
 
-  /* Motif basket discret en fond */
-  body::before {
-    content: "";
-    position: absolute;
+  /* ── Vidéo plein écran en fondu ── */
+  #bgVideo {
+    position: fixed;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    pointer-events: none;
-  }
-
-  .screen {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 420px;
-    padding: 28px 24px;
-    text-align: center;
-    transition: opacity .4s ease, transform .4s ease;
-  }
-  .screen.leaving { opacity: 0; transform: scale(1.03); }
-
-  /* ── Logo ── */
-  .logo-wrap {
-    width: 96px;
-    height: 96px;
-    background: white;
-    border-radius: 24px;
-    padding: 12px;
-    margin: 0 auto 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 34px rgba(0,0,0,.35);
-    opacity: 0;
-    transform: scale(.6);
-    animation: pop .6s cubic-bezier(.34,1.56,.64,1) .1s forwards;
-  }
-  .logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
-
-  h1 {
-    font-size: clamp(24px, 7vw, 34px);
-    font-weight: 800;
-    letter-spacing: .5px;
-    opacity: 0;
-    transform: translateY(10px);
-    animation: rise .5s ease .35s forwards;
-  }
-  h1 span { color: var(--green-light); }
-
-  p.tagline {
-    margin-top: 6px;
-    font-size: 14px;
-    color: #d1fae5;
-    opacity: 0;
-    transform: translateY(10px);
-    animation: rise .5s ease .5s forwards;
-  }
-
-  /* ── Vidéo ── */
-  .video-frame {
-    position: relative;
-    margin: 22px auto 0;
-    width: 100%;
-    aspect-ratio: 4 / 5;
-    max-height: 46vh;
-    border-radius: 20px;
-    overflow: hidden;
-    background: var(--green-dark2);
-    box-shadow: 0 14px 40px rgba(0,0,0,.4);
-    border: 2px solid rgba(255,255,255,.15);
-    opacity: 0;
-    transform: translateY(14px);
-    animation: rise .6s ease .55s forwards;
-  }
-  .video-frame video {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
+    opacity: 0;
+    animation: fadeIn 1.6s ease forwards;
   }
 
-  /* Visuel de secours tant qu'il n'y a pas de vidéo (ou en cas d'erreur) */
-  .video-fallback {
-    position: absolute;
+  /* Fond de secours tant qu'il n'y a pas de vidéo (dégradé vert animé) */
+  #fallbackBg {
+    position: fixed;
     inset: 0;
+    background: radial-gradient(circle at 50% 45%, #16a34a 0%, #14532d 45%, #052e16 100%);
+    background-size: 160% 160%;
+    opacity: 0;
+    animation: fadeIn 1.6s ease forwards, drift 8s ease-in-out infinite;
     display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background: linear-gradient(160deg, var(--green-dark) 0%, var(--green-dark2) 100%);
   }
-  .video-frame.no-video .video-fallback { display: flex; }
-  .video-frame.no-video video { display: none; }
-  .ball {
-    font-size: 54px;
-    animation: bounce 1.1s ease-in-out infinite;
-  }
-  .video-fallback span {
-    font-size: 12px;
-    color: rgba(255,255,255,.6);
-    letter-spacing: .3px;
+  body.no-video #fallbackBg { display: block; }
+  body.no-video #bgVideo { display: none; }
+
+  /* Voile sombre pour garder le logo lisible quel que soit le contenu vidéo */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 30%, rgba(0,0,0,.55) 100%);
+    pointer-events: none;
   }
 
-  /* ── Barre de progression ── */
-  .progress-track {
-    margin-top: 20px;
-    height: 4px;
-    border-radius: 4px;
-    background: rgba(255,255,255,.15);
-    overflow: hidden;
+  /* ── Logo, apparition progressive au centre ── */
+  .logo {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: min(38vw, 190px);
+    transform: translate(-50%, -50%) scale(.7);
+    opacity: 0;
+    filter: drop-shadow(0 6px 28px rgba(0,0,0,.55));
+    animation: logoIn 1.8s cubic-bezier(.22,.9,.3,1) .9s forwards;
   }
-  .progress-bar {
-    height: 100%;
-    width: 0%;
-    background: var(--green-light);
-    border-radius: 4px;
+  .logo img { width: 100%; display: block; }
+
+  /* ── Fondu de sortie global avant redirection ── */
+  .fade-out {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .6s ease;
+    z-index: 5;
   }
+  .fade-out.active { opacity: 1; }
 
   .skip {
-    display: inline-block;
-    margin-top: 16px;
-    font-size: 13px;
-    color: rgba(255,255,255,.65);
+    position: fixed;
+    right: 18px;
+    bottom: 16px;
+    z-index: 6;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: rgba(255,255,255,.45);
     text-decoration: none;
-    border: 1px solid rgba(255,255,255,.25);
-    padding: 7px 16px;
-    border-radius: 20px;
-    background: rgba(255,255,255,.06);
-    cursor: pointer;
-    transition: background .2s;
+    letter-spacing: .3px;
+    opacity: 0;
+    animation: fadeIn .8s ease 2s forwards;
   }
-  .skip:hover { background: rgba(255,255,255,.14); }
+  .skip:hover { color: rgba(255,255,255,.8); }
 
-  @keyframes pop {
-    to { opacity: 1; transform: scale(1); }
+  @keyframes fadeIn {
+    to { opacity: 1; }
   }
-  @keyframes rise {
-    to { opacity: 1; transform: translateY(0); }
+  @keyframes logoIn {
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   }
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-10px); }
+  @keyframes drift {
+    0%, 100% { background-position: 50% 50%; }
+    50%      { background-position: 55% 45%; }
   }
 </style>
 </head>
 <body>
 
-  <div class="screen" id="screen">
-    <div class="logo-wrap">
-      <img src="logo-bcmf.svg" alt="Logo BCMF" />
-    </div>
+  <video id="bgVideo" autoplay muted playsinline>
+    <source src="lf2-video.mp4" type="video/mp4" />
+  </video>
+  <div id="fallbackBg"></div>
+  <div class="vignette"></div>
 
-    <h1>BCMF <span>LF2</span></h1>
-    <p class="tagline">Les actions de la saison, en images 🏀</p>
-
-    <div class="video-frame" id="videoFrame">
-      <video id="teamVideo" autoplay muted playsinline>
-        <source src="lf2-video.mp4" type="video/mp4" />
-      </video>
-      <div class="video-fallback">
-        <div class="ball">🏀</div>
-        <span>Vidéo à venir</span>
-      </div>
-    </div>
-
-    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
-
-    <a href="https://bcmf.sportsregions.fr" class="skip" id="skipLink">Passer ➜</a>
+  <div class="logo">
+    <img src="logo-bcmf.svg" alt="BCMF" />
   </div>
+
+  <a href="https://bcmf.sportsregions.fr" class="skip" id="skipLink">passer</a>
+  <div class="fade-out" id="fadeOut"></div>
 
 <script>
   var REDIRECT_URL = "https://bcmf.sportsregions.fr";
-  var MAX_MS = 9500; // laisse ~400ms de fondu pour rester sous la barre des 10s
+  var MAX_MS = 7000; // animation courte type "flash" — marge large sous les 10s max
   var redirected = false;
 
-  var screen = document.getElementById("screen");
-  var video  = document.getElementById("teamVideo");
-  var frame  = document.getElementById("videoFrame");
-  var bar    = document.getElementById("progressBar");
+  var video   = document.getElementById("bgVideo");
+  var fadeOut = document.getElementById("fadeOut");
 
-  // Pas de source vidéo (fichier pas encore déposé) ou erreur de lecture → visuel de secours
-  video.addEventListener("error", function () { frame.classList.add("no-video"); }, true);
+  // Pas de fichier vidéo déposé (ou erreur de lecture) → fond dégradé de secours
+  video.addEventListener("error", function () { document.body.classList.add("no-video"); }, true);
   setTimeout(function () {
-    if (video.readyState === 0) frame.classList.add("no-video");
-  }, 1200);
-
-  // Barre de progression animée sur la durée totale
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      bar.style.transition = "width " + MAX_MS + "ms linear";
-      bar.style.width = "100%";
-    });
-  });
+    if (video.readyState === 0) document.body.classList.add("no-video");
+  }, 1000);
 
   function goToSportsRegions() {
     if (redirected) return;
     redirected = true;
-    screen.classList.add("leaving");
+    fadeOut.classList.add("active");
     setTimeout(function () {
       window.location.href = REDIRECT_URL;
-    }, 350);
+    }, 600);
   }
 
-  video.addEventListener("ended", goToSportsRegions);
   document.getElementById("skipLink").addEventListener("click", function (e) {
     e.preventDefault();
     goToSportsRegions();
