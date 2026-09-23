@@ -63,7 +63,7 @@
     pointer-events: none;
   }
 
-  /* ── Logo, apparition progressive au centre ── */
+  /* ── Logo : apparition au centre puis zoom jusqu'à couvrir toute la page ── */
   .logo {
     position: fixed;
     top: 50%;
@@ -72,7 +72,7 @@
     transform: translate(-50%, -50%) scale(.7);
     opacity: 0;
     filter: drop-shadow(0 6px 28px rgba(0,0,0,.55));
-    animation: logoIn 1.8s cubic-bezier(.22,.9,.3,1) .9s forwards;
+    animation: logoIn 5.4s cubic-bezier(.5,0,.4,1) .9s forwards;
   }
   .logo img { width: 100%; display: block; }
 
@@ -107,7 +107,10 @@
     to { opacity: 1; }
   }
   @keyframes logoIn {
-    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+    22%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    45%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(30); }
   }
   @keyframes drift {
     0%, 100% { background-position: 50% 50%; }
