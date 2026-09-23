@@ -174,7 +174,7 @@
 
 <script>
   var REDIRECT_URL = "https://bcmf.sportsregions.fr";
-  var MAX_MS = 8400; // + 600ms de fondu = redirection vers ~9s
+  var MAX_MS = 8400; // + 1000ms (fondu + marge noire) = redirection vers ~9.4s
   var CLIP_START = 0; // ne garder que le passage entre 0s et 8s de la vidéo source
   var CLIP_END   = 8;
   var redirected = false;
@@ -233,9 +233,13 @@
     if (redirected) return;
     redirected = true;
     fadeOut.classList.add("active");
+    // 600ms pour le fondu + une marge de 400ms où l'écran reste bien noir
+    // avant de naviguer, pour que le logo ne soit jamais visible sur la
+    // dernière image que le navigateur "fige" pendant sa propre transition
+    // de navigation (effet zoom/désaturation propre au moteur Chromium).
     setTimeout(function () {
       window.location.href = REDIRECT_URL;
-    }, 600);
+    }, 1000);
   }
 
   document.getElementById("skipLink").addEventListener("click", function (e) {
