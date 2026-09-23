@@ -182,16 +182,17 @@
   var logoEl  = document.querySelector(".logo");
   var logoImg = logoEl.querySelector("img");
 
-  // Calcule le facteur de zoom qui couvrirait tout l'écran, puis n'en
-  // garde que la moitié (zoom max réduit de 50%, sur demande).
-  var ZOOM_MAX_RATIO = 0.5;
+  // Le logo, en zoom max, doit faire la même taille que celui incrusté
+  // nativement à la fin de lf2-video.mp4 (mesuré par analyse pixel :
+  // ~61% de la largeur de l'image vidéo), pour un raccord cohérent.
+  var VIDEO_LOGO_WIDTH_RATIO = 0.61;
+  var VIDEO_DISPLAY_SCALE    = 0.8; // suit le CSS: #bgVideo { transform: scale(.8) }
   function setLogoFinalScale() {
     var naturalW = logoImg.naturalWidth, naturalH = logoImg.naturalHeight;
     if (!naturalW || !naturalH) return;
     var baseW = Math.min(window.innerWidth * 0.38, 190); // suit le CSS: min(38vw, 190px)
-    var baseH = baseW * (naturalH / naturalW);
-    var coverScale = Math.max(window.innerWidth / baseW, window.innerHeight / baseH);
-    var scale = coverScale * ZOOM_MAX_RATIO;
+    var targetWidthPx = VIDEO_LOGO_WIDTH_RATIO * VIDEO_DISPLAY_SCALE * window.innerWidth;
+    var scale = targetWidthPx / baseW;
     logoEl.style.setProperty("--logo-final-scale", scale.toFixed(2));
   }
   if (logoImg.complete) setLogoFinalScale();
