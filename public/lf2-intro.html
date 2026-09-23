@@ -203,7 +203,6 @@
   setLogoFinalScale();
   logoImg.addEventListener("load", setLogoFinalScale);
   window.addEventListener("load", setLogoFinalScale);
-  window.addEventListener("resize", setLogoFinalScale);
 
   // Pas de fichier vidéo déposé (ou erreur de lecture) → fond dégradé de secours
   video.addEventListener("error", function () { document.body.classList.add("no-video"); }, true);
