@@ -3,6 +3,7 @@ import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import AdminConfigPage from "./pages/AdminConfigPage.jsx";
 import AdminStatsPage from "./pages/AdminStatsPage.jsx";
 import PublicationsPage from "./pages/PublicationsPage.jsx";
+import GameDayPage from "./pages/GameDayPage.jsx";
 import { supabase } from "./services/supabaseClient.js";
 import Header from "./components/Header.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -841,6 +842,16 @@ export default function App() {
     );
   }
 
+  if (page === "gameday") {
+    return (
+      <div style={styles.page}>
+        <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
+        {profileModal}
+        <GameDayPage onBack={() => setPage("dashboard")} />
+      </div>
+    );
+  }
+
   if (selectedEvent) {
     return (
       <div style={styles.page}>
@@ -878,6 +889,12 @@ export default function App() {
         {(currentUser.role === "admin" || currentUser.role === "referent") && (
           <button style={navBtn} onClick={() => setPage("publications")}>
             📣 Publications (news & photos)
+          </button>
+        )}
+
+        {(currentUser.role === "admin" || currentUser.role === "referent") && (
+          <button style={navBtn} onClick={() => setPage("gameday")}>
+            🏀 Affiches Game Day
           </button>
         )}
 
