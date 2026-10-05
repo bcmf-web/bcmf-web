@@ -107,29 +107,45 @@ function jarToString(jar: Record<string, string>): string {
 }
 
 // ── 2a. Chercher l'album existant pour une équipe ─────────────────────────
+// Saison courante au format "2026-2027" (la saison démarre en août)
+function currentSeason(): string {
+  const now = new Date();
+  const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}-${start + 1}`;
+}
+
+function seasonAlbumName(teamName: string): string {
+  return `Saison ${currentSeason()} - ${teamName}`;
+}
+
+function normalizeName(s: string): string {
+  return s.replace(/<[^>]+>/g, " ").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 async function findTeamAlbum(cookies: string, teamName: string): Promise<number | null> {
-  // Cherche dans tous les albums (en ligne et hors ligne) un album "Saison * - {teamName}"
+  // Cherche l'album EXACT "Saison {saison courante} - {teamName}" (en ligne ou hors ligne).
+  // Ne jamais matcher sur le seul nom d'équipe : "Soirée de lancement LF2 - 2026-2027" contient aussi "LF2".
+  const wanted = normalizeName(seasonAlbumName(teamName));
+  const wantedRe = new RegExp(`(^|[^\\w-])${wanted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`);
+
   for (const status of [1, 2]) {
     const resp = await fetch(`${SR_BASE}/albumphoto?status=${status}`, {
       headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
     });
     const html = await resp.text();
 
-    // Cherche les blocs album avec leur nom et leur lien d'édition
-    const blocks = [...html.matchAll(/albumphoto\/edit\/(\d+)[^>]*>[\s\S]*?<[^>]*class="[^"]*titre[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/gi)];
-    for (const block of blocks) {
-      const id   = parseInt(block[1], 10);
-      const nom  = block[2].replace(/<[^>]+>/g, "").trim();
-      if (nom.toLowerCase().includes(teamName.toLowerCase())) return id;
+    // Découpe le HTML en segments : de chaque lien d'édition jusqu'au lien suivant
+    const links = [...html.matchAll(/albumphoto\/edit\/(\d+)/g)];
+    const textById = new Map<number, string>();
+    for (let i = 0; i < links.length; i++) {
+      const id    = parseInt(links[i][1], 10);
+      const start = links[i].index ?? 0;
+      const end   = i + 1 < links.length ? (links[i + 1].index ?? html.length) : Math.min(html.length, start + 600);
+      textById.set(id, (textById.get(id) ?? "") + " " + html.slice(start, end));
     }
 
-    // Fallback : chercher le nom dans le HTML brut autour de chaque lien edit
-    const matches = [...html.matchAll(/albumphoto\/edit\/(\d+)/g)];
-    for (const m of matches) {
-      const id  = parseInt(m[1], 10);
-      const idx = m.index ?? 0;
-      const ctx = html.slice(idx, idx + 300);
-      if (ctx.toLowerCase().includes(teamName.toLowerCase())) return id;
+    for (const [id, segment] of textById) {
+      if (wantedRe.test(normalizeName(segment))) return id;
     }
   }
   return null;
@@ -488,7 +504,7 @@ Deno.serve(async (req: Request) => {
     let albumId: number;
     if (team_name) {
       const existing = await findTeamAlbum(cookies, team_name);
-      albumId = existing ?? await createAlbum(cookies, `Saison 2025-2026 - ${team_name}`, team_name);
+      albumId = existing ?? await createAlbum(cookies, seasonAlbumName(team_name), team_name);
     } else {
       albumId = await createAlbum(cookies, album_name, team_name);
     }
