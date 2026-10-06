@@ -312,7 +312,7 @@ export async function renderPoster(o) {
   drawText(ctx, { text: (o.heure || "").toUpperCase().replace(":", "H"), x: 930, y: 815, size: 190, fontOf: script, color: WHITE, maxW: 560 });
 
   // equipe detouree
-  const cut = await cutTeam(o.photo, progress);
+  const cut = await cutTeam(o.photo, progress, { fondu: o.teamStyle === "fondu" });
   progress("Mise en page…");
   let hgt = 700;
   let wd = (cut.width * hgt) / cut.height;
