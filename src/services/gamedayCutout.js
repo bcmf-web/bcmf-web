@@ -5,6 +5,9 @@ import * as ort from "onnxruntime-web/wasm";
 const MODEL_URL = `${import.meta.env.BASE_URL}gameday/isnet-q.onnx`;
 let sessionPromise = null;
 
+// Resultats de detourage gardes en memoire (par fichier) : permet de retoucher puis de regenerer sans relancer le modele.
+const cache = new WeakMap();
+
 function getSession() {
   if (!sessionPromise) {
     ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.env.versions.web}/dist/`;
@@ -62,7 +65,7 @@ async function predict1024(canvas) {
 }
 
 // Masque 1024 -> Uint8 a la taille (w, h), interpolation douce
-function upscaleMask(mask, w, h) {
+function upscaleMask(mask, w, h, src = [0, 0, 1024, 1024]) {
   const g = makeCanvas(1024, 1024);
   const gctx = g.getContext("2d");
   const id = gctx.createImageData(1024, 1024);
@@ -74,72 +77,68 @@ function upscaleMask(mask, w, h) {
   const o = makeCanvas(w, h);
   const octx = o.getContext("2d");
   octx.imageSmoothingQuality = "high";
-  octx.drawImage(g, 0, 0, w, h);
+  octx.drawImage(g, src[0], src[1], src[2], src[3], 0, 0, w, h);
   const d = octx.getImageData(0, 0, w, h).data;
   const a = new Uint8Array(w * h);
   for (let i = 0; i < a.length; i++) a[i] = d[i * 4];
   return a;
 }
 
-// ---------- morphologie sur grille reduite ----------
-function boxFilter(src, w, h, k, isMax) {
-  const r = Math.floor(k / 2);
+// ---------- grille reduite : on garde tout ce qui est relie a une personne ----------
+function dilate(src, w, h, r) {
   const tmp = new Uint8Array(w * h);
   const out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = isMax ? 0 : 1;
-      for (let dx = -r; dx <= r; dx++) {
-        const xx = x + dx;
-        const p = xx < 0 || xx >= w ? (isMax ? 0 : 1) : src[y * w + xx];
-        if (isMax) { if (p > v) v = p; } else if (p < v) v = p;
-      }
-      tmp[y * w + x] = v;
-    }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0;
+    for (let dx = -r; dx <= r && !v; dx++) { const xx = x + dx; if (xx >= 0 && xx < w && src[y * w + xx]) v = 1; }
+    tmp[y * w + x] = v;
   }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = isMax ? 0 : 1;
-      for (let dy = -r; dy <= r; dy++) {
-        const yy = y + dy;
-        const p = yy < 0 || yy >= h ? (isMax ? 0 : 1) : tmp[yy * w + x];
-        if (isMax) { if (p > v) v = p; } else if (p < v) v = p;
-      }
-      out[y * w + x] = v;
-    }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0;
+    for (let dy = -r; dy <= r && !v; dy++) { const yy = y + dy; if (yy >= 0 && yy < h && tmp[yy * w + x]) v = 1; }
+    out[y * w + x] = v;
   }
   return out;
 }
 
-function keepLargeComponents(bin, w, h, minArea) {
+/** Composantes de `low` qui contiennent au moins un pixel `strong` et dont la surface depasse minArea. */
+function keepConnected(low, strong, w, h, minArea) {
   const label = new Int32Array(w * h);
   const keep = new Uint8Array(w * h);
   const stack = [];
   let id = 0;
   for (let i = 0; i < w * h; i++) {
-    if (!bin[i] || label[i]) continue;
+    if (!low[i] || label[i]) continue;
     id++;
     const members = [];
+    let hasStrong = false;
     stack.push(i);
     label[i] = id;
     while (stack.length) {
       const p = stack.pop();
       members.push(p);
+      if (strong[p]) hasStrong = true;
       const x = p % w, y = (p / w) | 0;
-      if (x > 0 && bin[p - 1] && !label[p - 1]) { label[p - 1] = id; stack.push(p - 1); }
-      if (x < w - 1 && bin[p + 1] && !label[p + 1]) { label[p + 1] = id; stack.push(p + 1); }
-      if (y > 0 && bin[p - w] && !label[p - w]) { label[p - w] = id; stack.push(p - w); }
-      if (y < h - 1 && bin[p + w] && !label[p + w]) { label[p + w] = id; stack.push(p + w); }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        const q = yy * w + xx;
+        if (low[q] && !label[q]) { label[q] = id; stack.push(q); }
+      }
     }
-    if (members.length >= minArea) for (const m of members) keep[m] = 1;
+    if (hasStrong && members.length >= minArea) for (const m of members) keep[m] = 1;
   }
   return keep;
 }
 
 /**
- * Detoure l'equipe. Retourne un canvas RGBA recadre sur les personnes.
+ * Detoure la photo. Retourne { orig: canvas (RGB, recadre), alpha: Uint8ClampedArray, w, h }.
+ * Le resultat est mis en cache pour permettre la retouche.
  */
-export async function cutTeam(file, onProgress = () => {}) {
+export async function getCutout(file, onProgress = () => {}) {
+  if (cache.has(file)) return cache.get(file);
+
   onProgress("Chargement de la photo…");
   const full = await loadBitmapCanvas(file, 3200);
 
@@ -158,7 +157,7 @@ export async function cutTeam(file, onProgress = () => {}) {
   const bx0 = Math.max(0, Math.floor(x0 * sx - mx)), by0 = Math.max(0, Math.floor(y0 * sy - my));
   const bx1 = Math.min(full.width, Math.ceil((x1 + 1) * sx + mx)), by1 = Math.min(full.height, Math.ceil((y1 + 1) * sy + my));
 
-  let cw = bx1 - bx0, ch = by1 - by0;
+  const cw = bx1 - bx0, ch = by1 - by0;
   const rs = Math.min(1, 1800 / cw);
   const crop = makeCanvas(cw * rs, ch * rs);
   const cctx = crop.getContext("2d");
@@ -168,22 +167,80 @@ export async function cutTeam(file, onProgress = () => {}) {
 
   onProgress("Détourage, passe 2/2…");
   const m2 = await predict1024(crop);
-  const a = upscaleMask(m2, W, H);
+  const a2 = upscaleMask(m2, W, H);
+  // la passe 1 (photo entiere) est parfois plus fiable sur les visages : on garde le meilleur des deux
+  const a1 = upscaleMask(m1, W, H, [bx0 / sx, by0 / sy, cw / sx, ch / sy]);
+  const a = new Uint8Array(W * H);
+  for (let i = 0; i < a.length; i++) a[i] = a2[i];
+  void a1;
 
   onProgress("Nettoyage du détourage…");
-  // grille reduite /4 : ouverture (retire lignes du sol), petits ilots, puis reprise
+  // Grille /4 (maximum par bloc pour ne pas perdre les parties fines).
   const f = 4;
   const sw = Math.ceil(W / f), sh = Math.ceil(H / f);
-  const small = new Uint8Array(sw * sh);
-  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
-    small[y * sw + x] = a[Math.min(H - 1, y * f) * W + Math.min(W - 1, x * f)] > 110 ? 1 : 0;
+  const low = new Uint8Array(sw * sh);
+  const strong = new Uint8Array(sw * sh);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const v = a[y * W + x];
+    if (v > 100) {
+      const k = ((y / f) | 0) * sw + ((x / f) | 0);
+      low[k] = 1;
+      if (v > 170) strong[k] = 1;
+    }
   }
-  const k = Math.max(3, Math.round((Math.max(15, W * 0.017)) / f) | 1);
-  const opened = boxFilter(boxFilter(small, sw, sh, k, false), sw, sh, k, true);
-  const big = keepLargeComponents(opened, sw, sh, Math.round(0.004 * W * H / (f * f)));
-  const gate = boxFilter(big, sw, sh, Math.max(3, k - 1) | 1, true);
+  // Ouverture (retire les lignes fines du sol), composantes principales, puis reprise des parties fines proches du corps.
+  const inv = new Uint8Array(low.length);
+  for (let i = 0; i < low.length; i++) inv[i] = low[i] ? 0 : 1;
+  const eroded = dilate(inv, sw, sh, 2);
+  for (let i = 0; i < eroded.length; i++) eroded[i] = eroded[i] ? 0 : 1;
+  const opened = dilate(eroded, sw, sh, 2);
+  const core = new Uint8Array(low.length);
+  for (let i = 0; i < core.length; i++) core[i] = opened[i] && low[i] ? 1 : 0;
+  const kept = keepConnected(core, strong, sw, sh, Math.round(0.003 * W * H / (f * f)));
+  // Trous dans la silhouette (visages ou torses que le modele a mal classes) : tout ce qui est entoure par la personne est rempli.
+  const closed = dilate(kept, sw, sh, 2);
+  const outside = new Uint8Array(sw * sh);
+  const fstack = [];
+  const seed = (i) => { if (!closed[i] && !outside[i]) { outside[i] = 1; fstack.push(i); } };
+  for (let x = 0; x < sw; x++) { seed(x); seed((sh - 1) * sw + x); }
+  for (let y = 0; y < sh; y++) { seed(y * sw); seed(y * sw + sw - 1); }
+  while (fstack.length) {
+    const p = fstack.pop();
+    const x = p % sw, y = (p / sw) | 0;
+    if (x > 0) seed(p - 1);
+    if (x < sw - 1) seed(p + 1);
+    if (y > 0) seed(p - sw);
+    if (y < sh - 1) seed(p + sw);
+  }
+  const rawHoles = new Uint8Array(sw * sh);
+  for (let i = 0; i < rawHoles.length; i++) rawHoles[i] = !closed[i] && !outside[i] ? 1 : 0;
+  // on ne bouche que les petits trous (visage, torse) pas les grands espaces entre deux personnes
+  const holes = new Uint8Array(sw * sh);
+  {
+    const lab = new Uint8Array(sw * sh);
+    const maxHole = Math.round(0.002 * sw * sh);
+    for (let i = 0; i < rawHoles.length; i++) {
+      if (!rawHoles[i] || lab[i]) continue;
+      const mem = [];
+      const st = [i];
+      lab[i] = 1;
+      while (st.length) {
+        const q = st.pop();
+        mem.push(q);
+        const x = q % sw, y = (q / sw) | 0;
+        if (x > 0 && rawHoles[q - 1] && !lab[q - 1]) { lab[q - 1] = 1; st.push(q - 1); }
+        if (x < sw - 1 && rawHoles[q + 1] && !lab[q + 1]) { lab[q + 1] = 1; st.push(q + 1); }
+        if (y > 0 && rawHoles[q - sw] && !lab[q - sw]) { lab[q - sw] = 1; st.push(q - sw); }
+        if (y < sh - 1 && rawHoles[q + sw] && !lab[q + sw]) { lab[q + sw] = 1; st.push(q + sw); }
+      }
+      if (mem.length <= maxHole) for (const m of mem) holes[m] = 1;
+    }
+  }
+  const fill = dilate(holes, sw, sh, 2);
+  const solid = new Uint8Array(sw * sh);
+  for (let i = 0; i < solid.length; i++) solid[i] = kept[i] || fill[i] ? 1 : 0;
+  const gate = dilate(solid, sw, sh, 6);
 
-  // gate -> pleine resolution, bord adouci
   const gc = makeCanvas(sw, sh);
   const gid = gc.getContext("2d").createImageData(sw, sh);
   for (let i = 0; i < gate.length; i++) { const v = gate[i] ? 255 : 0; gid.data[i * 4] = v; gid.data[i * 4 + 1] = v; gid.data[i * 4 + 2] = v; gid.data[i * 4 + 3] = 255; }
@@ -191,27 +248,78 @@ export async function cutTeam(file, onProgress = () => {}) {
   const gf = makeCanvas(W, H);
   const gfctx = gf.getContext("2d");
   gfctx.imageSmoothingQuality = "high";
-  gfctx.filter = "blur(3px)";
+  gfctx.filter = "blur(2px)";
   gfctx.drawImage(gc, 0, 0, W, H);
   const gd = gfctx.getImageData(0, 0, W, H).data;
 
-  const out = makeCanvas(W, H);
-  const octx = out.getContext("2d");
-  octx.drawImage(crop, 0, 0);
-  const od = octx.getImageData(0, 0, W, H);
-  let minX = W, minY = H, maxX = 0, maxY = 0;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x;
+  const alpha = new Uint8ClampedArray(W * H);
+  for (let i = 0; i < alpha.length; i++) {
     const g = gd[i * 4] / 255;
-    const raw = a[i] / 255;
-    const v = Math.max(raw, a[i] > 110 ? 1 : 0) * g;
-    const al = Math.max(0, Math.min(1, (v * 255 - 120) / 80));
-    od.data[i * 4 + 3] = Math.round(al * 255);
-    if (al > 0.08) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    // seuils tolerants : on garde les bords fins (cheveux, mains)
+    const inHole = fill[(((i / W) | 0) / f | 0) * sw + (((i % W) / f) | 0)];
+    const v = inHole ? 1 : Math.max(0, Math.min(1, (a[i] - 70) / 60));
+    alpha[i] = Math.round(v * g * 255);
   }
-  octx.putImageData(od, 0, 0);
-  if (maxX <= minX) throw new Error("Détourage vide : essaie une autre photo.");
+  const result = { orig: crop, alpha, alpha0: new Uint8ClampedArray(alpha), w: W, h: H };
+  cache.set(file, result);
+  return result;
+}
+
+/**
+ * Canvas RGBA recadre sur les personnes, a partir d'un resultat de detourage.
+ * opts.fondu : au lieu d'un detourage net, la photo reste visible autour des personnes et s'estompe en douceur.
+ */
+export function cutoutToCanvas(cut, opts = {}) {
+  const { orig, alpha, w, h } = cut;
+  const o = makeCanvas(w, h);
+  const octx = o.getContext("2d");
+  octx.drawImage(orig, 0, 0);
+  const id = octx.getImageData(0, 0, w, h);
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    id.data[i * 4 + 3] = alpha[i];
+    if (alpha[i] > 20) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  if (maxX < 0) throw new Error("Détourage vide : essaie une autre photo ou retouche-le.");
+
+  if (opts.fondu) {
+    // silhouette elargie puis tres floutee : sert de masque pour fondre la photo dans le fond
+    const sil = makeCanvas(w, h);
+    const sctx = sil.getContext("2d");
+    sctx.putImageData(id, 0, 0);
+    const shape = makeCanvas(w, h);
+    const hctx = shape.getContext("2d");
+    const grow = Math.round(Math.max(w, h) * 0.018);
+    for (let a = 0; a < 16; a++) {
+      const ang = (a / 16) * Math.PI * 2;
+      hctx.drawImage(sil, Math.cos(ang) * grow, Math.sin(ang) * grow);
+    }
+    hctx.drawImage(sil, 0, 0);
+    const soft = makeCanvas(w, h);
+    const softCtx = soft.getContext("2d");
+    softCtx.filter = `blur(${Math.round(Math.max(w, h) * 0.022)}px)`;
+    softCtx.drawImage(shape, 0, 0);
+    const out = makeCanvas(w, h);
+    const ctx2 = out.getContext("2d");
+    ctx2.drawImage(orig, 0, 0);
+    ctx2.globalCompositeOperation = "destination-in";
+    ctx2.drawImage(soft, 0, 0);
+    const pad = Math.round(Math.max(w, h) * 0.05);
+    const x0 = Math.max(0, minX - pad), y0 = Math.max(0, minY - pad);
+    const x1 = Math.min(w, maxX + pad), y1 = Math.min(h, maxY + pad);
+    const res = makeCanvas(x1 - x0, y1 - y0);
+    res.getContext("2d").drawImage(out, x0, y0, res.width, res.height, 0, 0, res.width, res.height);
+    return res;
+  }
+
+  octx.putImageData(id, 0, 0);
   const res = makeCanvas(maxX - minX + 1, maxY - minY + 1);
-  res.getContext("2d").drawImage(out, minX, minY, res.width, res.height, 0, 0, res.width, res.height);
+  res.getContext("2d").drawImage(o, minX, minY, res.width, res.height, 0, 0, res.width, res.height);
   return res;
+}
+
+/** Detoure l'equipe. Retourne un canvas RGBA recadre sur les personnes. */
+export async function cutTeam(file, onProgress = () => {}, opts = {}) {
+  return cutoutToCanvas(await getCutout(file, onProgress), opts);
 }

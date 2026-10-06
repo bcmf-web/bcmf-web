@@ -6,6 +6,8 @@ import { useNotify } from "../contexts/NotifyContext.jsx";
 import { publishToSportsRegions, publishNewsToSportsRegions } from "../services/sportsregions.js";
 import { renderPoster, canvasToJpegBlob } from "../services/gamedayRender.js";
 import { renderResultPoster, renderMvpPoster } from "../services/gamedayPosters.js";
+import { getCutout } from "../services/gamedayCutout.js";
+import CutoutEditor from "../components/CutoutEditor.jsx";
 
 const JOURS = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI", "DIMANCHE"];
 const MOIS = ["JANVIER", "FÉVRIER", "MARS", "AVRIL", "MAI", "JUIN", "JUILLET", "AOÛT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DÉCEMBRE"];
@@ -73,6 +75,8 @@ export default function GameDayPage({ currentUser, onBack }) {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
 
+  const [teamStyle, setTeamStyle] = useState("detoure");
+  const [editorCut, setEditorCut] = useState(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -91,6 +95,7 @@ export default function GameDayPage({ currentUser, onBack }) {
     : (currentUser?.teamsList || []).map((t) => t.name);
   const canPublish = isAdmin || currentUser?.role === "referent";
 
+  const usesCutout = kind === "gameday" || (kind === "resultat" && modele === "vert");
   const needsLogo = kind !== "mvp";
   const framing = kind === "mvp" || (kind === "resultat" && modele === "photo");
   const prefix = kind === "gameday" ? "gameday" : kind === "mvp" ? "mvp" : resultat;
@@ -107,13 +112,13 @@ export default function GameDayPage({ currentUser, onBack }) {
       let canvas;
       if (kind === "gameday") {
         canvas = await renderPoster({
-          photo, logo, jour, numero: numero.trim(), mois, heure: heure.trim(), equipe: equipe.trim(),
+          photo, logo, teamStyle, jour, numero: numero.trim(), mois, heure: heure.trim(), equipe: equipe.trim(),
           salle: salle.trim(), ville: ville.trim(), adversaireGauche: ordre === "adversaire", logoMode,
           onProgress: setStatus,
         });
       } else if (kind === "resultat") {
         canvas = await renderResultPoster({
-          style: modele, resultat, scoreBcmf, scoreAdv, journee: journee.trim(), jour: numero.trim() ? jour : "",
+          style: modele, teamStyle, resultat, scoreBcmf, scoreAdv, journee: journee.trim(), jour: numero.trim() ? jour : "",
           numero: numero.trim(), mois: numero.trim() ? mois : "", equipe: equipe.trim(), salle: salle.trim(),
           ville: ville.trim(), photo, logo, bcmfGauche: ordre !== "adversaire", logoMode, zoom, focusX, focusY,
           onProgress: setStatus,
@@ -150,6 +155,23 @@ export default function GameDayPage({ currentUser, onBack }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openEditor() {
+    if (!photo) return;
+    setBusy(true);
+    try {
+      setEditorCut(await getCutout(photo, setStatus));
+    } catch (e) {
+      toast(e.message || "Impossible d'ouvrir la retouche.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyEditor() {
+    setEditorCut(null);
+    await generate();
   }
 
   async function save() {
@@ -253,6 +275,7 @@ export default function GameDayPage({ currentUser, onBack }) {
     <div>
       <button style={styles.backButton} onClick={onBack}>← Retour</button>
       <h2 style={styles.sectionTitle}>🏀 Affiches</h2>
+      {editorCut && <CutoutEditor cut={editorCut} onClose={() => setEditorCut(null)} onApply={applyEditor} />}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {KINDS.map((k) => (
           <button key={k.id} style={chip(kind === k.id)} onClick={() => { setKind(k.id); setOrdre(k.id === "resultat" ? "bcmf" : "adversaire"); }}>{k.label}</button>
@@ -280,6 +303,16 @@ export default function GameDayPage({ currentUser, onBack }) {
             {kind === "mvp" ? "Photo de la joueuse" : modele === "photo" && kind === "resultat" ? "Photo (plein fond)" : "Photo d'équipe"}
           </label>
           {fileBox(photo, photoRef, setPhoto, "📷 Choisir la photo")}
+
+          {usesCutout && (
+            <>
+              <label style={label}>Style de l'équipe</label>
+              <select style={styles.input} value={teamStyle} onChange={(e) => setTeamStyle(e.target.value)}>
+                <option value="detoure">Détourée (bords nets)</option>
+                <option value="fondu">Fondu (bords adoucis, plus tolérant)</option>
+              </select>
+            </>
+          )}
 
           {needsLogo && (
             <>
@@ -384,6 +417,9 @@ export default function GameDayPage({ currentUser, onBack }) {
               </div>
               <div style={{ marginTop: 14 }}>
                 <button style={styles.orangeButton} onClick={save}>💾 Enregistrer l'affiche…</button>
+                {usesCutout && (
+                  <button style={{ ...styles.darkButton, marginLeft: 8 }} disabled={busy} onClick={openEditor}>✂️ Retoucher le détourage</button>
+                )}
               </div>
 
               {canPublish && (

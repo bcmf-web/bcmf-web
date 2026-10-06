@@ -73,7 +73,7 @@ export async function renderResultPoster(o) {
   drawText(ctx, { text: "VS", x: 800, y: 880, size: 120, fontOf: bold, color: WHITE, align: "m", shear: 0.2 });
 
   // equipe detouree
-  const cut = await cutTeam(o.photo, progress);
+  const cut = await cutTeam(o.photo, progress, { fondu: o.teamStyle === "fondu" });
   progress("Mise en page…");
   let hgt = 700;
   let wd = (cut.width * hgt) / cut.height;
