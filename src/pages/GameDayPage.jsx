@@ -3,6 +3,7 @@ import { supabase } from "../services/supabaseClient.js";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import { publishToSportsRegions, publishNewsToSportsRegions } from "../services/sportsregions.js";
 import { renderPoster, canvasToJpegBlob } from "../services/gamedayRender.js";
 import { renderResultPoster, renderMvpPoster } from "../services/gamedayPosters.js";
 
@@ -22,10 +23,11 @@ const slug = (s) =>
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "") || "match";
 
-export default function GameDayPage({ onBack }) {
+export default function GameDayPage({ currentUser, onBack }) {
   const isMobile = useIsMobile();
   const styles = getStyles(isMobile);
-  const { toast } = useNotify();
+  const { toast, confirm: confirmModal } = useNotify();
+  const isAdmin = currentUser?.role === "admin";
 
   const [kind, setKind] = useState("gameday");
 
@@ -63,6 +65,14 @@ export default function GameDayPage({ onBack }) {
   const [focusX, setFocusX] = useState(0.5);
   const [focusY, setFocusY] = useState(0.35);
 
+  // publication SportsRegions
+  const [pubTeam, setPubTeam] = useState("");
+  const [pubMode, setPubMode] = useState("album");
+  const [pubTitre, setPubTitre] = useState("");
+  const [pubCorps, setPubCorps] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -75,6 +85,11 @@ export default function GameDayPage({ onBack }) {
     return () => previewUrl && URL.revokeObjectURL(previewUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const teamChoices = isAdmin
+    ? teams.map((t) => t.name)
+    : (currentUser?.teamsList || []).map((t) => t.name);
+  const canPublish = isAdmin || currentUser?.role === "referent";
 
   const needsLogo = kind !== "mvp";
   const framing = kind === "mvp" || (kind === "resultat" && modele === "photo");
@@ -113,6 +128,20 @@ export default function GameDayPage({ onBack }) {
       blobRef.current = blob;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(blob));
+      setPublished(false);
+      const eq = equipe.trim();
+      const datePart = [jour, numero.trim(), mois].filter(Boolean).join(" ").toLowerCase();
+      if (kind === "gameday") {
+        setPubTitre(`Game Day${eq ? " " + eq : ""} : ${datePart}`);
+        setPubCorps(`Rendez-vous ${datePart} à ${heure.trim()}${salle.trim() ? " - " + salle.trim() : ""}${ville.trim() ? ", " + ville.trim() : ""}. Venez nombreux !`);
+      } else if (kind === "resultat") {
+        setPubTitre(`${resultat === "victoire" ? "Victoire" : "Défaite"}${eq ? " " + eq : ""} : ${scoreBcmf} - ${scoreAdv}`);
+        setPubCorps("");
+      } else {
+        setPubTitre(`MVP : ${prenomNom.trim()}`);
+        setPubCorps("");
+      }
+      if (eq && teamChoices.includes(eq)) setPubTeam(eq);
       setStatus("Affiche prête.");
     } catch (e) {
       console.error(e);
@@ -146,6 +175,56 @@ export default function GameDayPage({ onBack }) {
     a.download = fileName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  async function uploadPoster(folder) {
+    const path = `${folder}/gameday/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const { error } = await supabase.storage.from("bcmf-media").upload(path, blobRef.current, { contentType: "image/jpeg" });
+    if (error) throw new Error("Envoi de l'image impossible : " + error.message);
+    return supabase.storage.from("bcmf-media").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function publish() {
+    if (!blobRef.current) return;
+    if (!pubTeam) return toast("Choisis l'équipe pour la publication.", "error");
+    const mode = isAdmin ? pubMode : "album";
+    if (mode === "actu" && !pubTitre.trim()) return toast("Le titre de l'actualité est obligatoire.", "error");
+    const ok = await confirmModal(
+      mode === "actu"
+        ? `Publier cette actualité sur le site du club (SportsRegions) pour ${pubTeam} ? Elle sera visible par tout le monde.`
+        : `Publier cette affiche dans un album photo SportsRegions pour ${pubTeam} ? Elle sera visible par tout le monde.`
+    );
+    if (!ok) return;
+    setPublishing(true);
+    try {
+      if (mode === "actu") {
+        const url = await uploadPoster("news");
+        const { data: row, error } = await supabase.from("news").insert([{
+          titre: pubTitre.trim(), chapo: "", corps: pubCorps.trim(), team_name: pubTeam,
+          illustration_url: url, published_by: currentUser.name, synced: false,
+        }]).select().single();
+        if (error) throw new Error(error.message);
+        const res = await publishNewsToSportsRegions(row);
+        if (!res.success) throw new Error(res.error);
+        await supabase.from("news").update({ synced: true }).eq("id", row.id);
+      } else {
+        const url = await uploadPoster("publications");
+        const { data: row, error } = await supabase.from("publications").insert([{
+          team_name: pubTeam, photos: [url], published_by: currentUser.name, synced: false,
+        }]).select().single();
+        if (error) throw new Error(error.message);
+        const res = await publishToSportsRegions(row);
+        if (!res.success) throw new Error(res.error);
+        await supabase.from("publications").update({ synced: true }).eq("id", row.id);
+      }
+      setPublished(true);
+      toast("Publié sur SportsRegions.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Publication impossible : " + (e.message || e), "error");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   const label = { display: "block", fontWeight: "bold", fontSize: 13, margin: "10px 0 4px", color: "#334155" };
@@ -306,6 +385,39 @@ export default function GameDayPage({ onBack }) {
               <div style={{ marginTop: 14 }}>
                 <button style={styles.orangeButton} onClick={save}>💾 Enregistrer l'affiche…</button>
               </div>
+
+              {canPublish && (
+                <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid #e2e8f0", textAlign: "left", maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>📣 Publier sur SportsRegions</div>
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                      <button style={chip(pubMode === "album")} onClick={() => setPubMode("album")}>Album photo</button>
+                      <button style={chip(pubMode === "actu")} onClick={() => setPubMode("actu")}>Actualité</button>
+                    </div>
+                  )}
+                  <label style={{ ...label, marginTop: 4 }}>Équipe</label>
+                  <select style={styles.input} value={pubTeam} onChange={(e) => setPubTeam(e.target.value)}>
+                    <option value="">— choisir —</option>
+                    {teamChoices.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  {isAdmin && pubMode === "actu" && (
+                    <>
+                      <label style={label}>Titre</label>
+                      <input style={styles.input} value={pubTitre} onChange={(e) => setPubTitre(e.target.value)} />
+                      <label style={label}>Texte (facultatif)</label>
+                      <textarea style={{ ...styles.input, minHeight: 80, fontFamily: "inherit" }} value={pubCorps} onChange={(e) => setPubCorps(e.target.value)} />
+                    </>
+                  )}
+                  <div style={{ marginTop: 10 }}>
+                    <button style={publishing || published ? styles.disabledButton : styles.orangeButton} disabled={publishing || published} onClick={publish}>
+                      {publishing ? "Publication…" : published ? "✅ Publié" : isAdmin && pubMode === "actu" ? "Publier l'actualité" : "Publier dans un album"}
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
+                    {isAdmin ? "Les référents ne peuvent publier que dans un album photo." : "Les actualités sont réservées aux administrateurs."}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ color: "#64748b", padding: 40 }}>
