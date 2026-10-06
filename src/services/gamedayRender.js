@@ -6,20 +6,20 @@ import { cutTeam, loadBitmapCanvas } from "./gamedayCutout.js";
 
 export const POSTER_W = 1600;
 export const POSTER_H = 2000;
-const BASE = `${import.meta.env.BASE_URL}gameday/`;
-const GREEN = "rgb(40,125,80)";
-const WHITE = "#ffffff";
-const CONDENSED = '"Barlow Condensed", "Arial Narrow", sans-serif';
-const SCRIPT = '"Kaushan Script", "Brush Script MT", cursive';
+export const BASE = `${import.meta.env.BASE_URL}gameday/`;
+export const GREEN = "rgb(40,125,80)";
+export const WHITE = "#ffffff";
+export const CONDENSED = '"Barlow Condensed", "Arial Narrow", sans-serif';
+export const SCRIPT = '"Kaushan Script", "Brush Script MT", cursive';
 
-function makeCanvas(w, h) {
+export function makeCanvas(w, h) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(w));
   c.height = Math.max(1, Math.round(h));
   return c;
 }
 
-function loadImage(src) {
+export function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -28,7 +28,7 @@ function loadImage(src) {
   });
 }
 
-async function ensureFonts() {
+export async function ensureFonts() {
   await Promise.all([
     document.fonts.load('800 100px "Barlow Condensed"'),
     document.fonts.load('700 100px "Barlow Condensed"'),
@@ -52,7 +52,7 @@ function fitSize(ctx, text, fontOf, size, maxW) {
  * Trace un texte avec cisaillement (italique) ancre sur la ligne de base.
  * mode "plain" : remplissage simple. mode "relief" : contour clair + ombre + biseau.
  */
-function drawText(target, spec) {
+export function drawText(target, spec) {
   const { text, x, y, size, fontOf, color = WHITE, align = "l", shear = 0, maxW, relief = false, rotate = 0 } = spec;
   const ctx = target;
   ctx.save();
@@ -197,7 +197,7 @@ function removeWhiteBackground(canvas) {
   ctx.putImageData(img, 0, 0);
 }
 
-async function prepLogo(file, mode, box = [460, 300]) {
+export async function prepLogo(file, mode, box = [460, 300]) {
   let src = await loadBitmapCanvas(file, 2000);
   const alpha = hasAlpha(src);
   const minSide = Math.min(src.width, src.height);
@@ -250,6 +250,28 @@ async function prepLogo(file, mode, box = [460, 300]) {
   return fin;
 }
 
+
+/** Fond vert du modele + motif de mots. Retourne l'image du logo BCMF (blanc). */
+export async function paintBackground(ctx, ville) {
+  const [bg, mask, bcmf] = await Promise.all([
+    loadImage(BASE + "bg.jpg"),
+    loadImage(BASE + "bg-mask.png"),
+    loadImage(BASE + "bcmf-logo.png"),
+  ]);
+  ctx.drawImage(bg, 0, 0, POSTER_W, POSTER_H);
+  const pat = makeCanvas(POSTER_W, POSTER_H);
+  const pctx = pat.getContext("2d");
+  pctx.font = `700 64px ${CONDENSED}`;
+  pctx.fillStyle = "rgba(60,110,90,0.15)";
+  pctx.textBaseline = "top";
+  const words = ["GO BCMF GO", "NEXT GAME", "ICI, ICI C'EST", (ville || "ICI").toUpperCase(), "EN VERT ET BLANC"];
+  for (let r = 0; r < 22; r++) for (let c = -1; c < 4; c++) pctx.fillText(words[(r + c) % 5 < 0 ? 0 : (r + c) % 5], c * 480 - (r % 2) * 240 + 10, r * 100 + 420);
+  pctx.globalCompositeOperation = "destination-in";
+  pctx.drawImage(mask, 0, 0, POSTER_W, POSTER_H);
+  ctx.drawImage(pat, 0, 0);
+  return bcmf;
+}
+
 // ---------- affiche ----------
 /**
  * @param {object} o
@@ -261,28 +283,11 @@ export async function renderPoster(o) {
   const progress = o.onProgress || (() => {});
   progress("Préparation du fond…");
   await ensureFonts();
-  const [bg, mask, bcmf] = await Promise.all([
-    loadImage(BASE + "bg.jpg"),
-    loadImage(BASE + "bg-mask.png"),
-    loadImage(BASE + "bcmf-logo.png"),
-  ]);
 
   const canvas = makeCanvas(POSTER_W, POSTER_H);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bg, 0, 0, POSTER_W, POSTER_H);
-
-  // motif de mots dans les zones effacees du fond
-  const pat = makeCanvas(POSTER_W, POSTER_H);
-  const pctx = pat.getContext("2d");
-  pctx.font = `700 64px ${CONDENSED}`;
-  pctx.fillStyle = "rgba(60,110,90,0.15)";
-  pctx.textBaseline = "top";
-  const words = ["GO BCMF GO", "NEXT GAME", "ICI, ICI C'EST", (o.ville || "ICI").toUpperCase(), "EN VERT ET BLANC"];
-  for (let r = 0; r < 22; r++) for (let c = -1; c < 4; c++) pctx.fillText(words[(r + c) % 5 < 0 ? 0 : (r + c) % 5], c * 480 - (r % 2) * 240 + 10, r * 100 + 420);
-  pctx.globalCompositeOperation = "destination-in";
-  pctx.drawImage(mask, 0, 0, POSTER_W, POSTER_H);
-  ctx.drawImage(pat, 0, 0);
+  const bcmf = await paintBackground(ctx, o.ville);
 
   const cond = (w) => (s) => `${w} ${s}px ${CONDENSED}`;
   const bold = cond(800);
