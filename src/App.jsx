@@ -847,7 +847,7 @@ export default function App() {
       <div style={styles.page}>
         <Header currentUser={currentUser} onProfileClick={() => setShowProfile(true)} pushEnabled={pushEnabled} onTogglePush={handleTogglePush} />
         {profileModal}
-        <GameDayPage onBack={() => setPage("dashboard")} />
+        <GameDayPage currentUser={currentUser} onBack={() => setPage("dashboard")} />
       </div>
     );
   }

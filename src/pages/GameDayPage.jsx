@@ -3,10 +3,18 @@ import { supabase } from "../services/supabaseClient.js";
 import { getStyles } from "../styles/styles.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useNotify } from "../contexts/NotifyContext.jsx";
+import { publishToSportsRegions, publishNewsToSportsRegions } from "../services/sportsregions.js";
 import { renderPoster, canvasToJpegBlob } from "../services/gamedayRender.js";
+import { renderResultPoster, renderMvpPoster } from "../services/gamedayPosters.js";
 
 const JOURS = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI", "DIMANCHE"];
 const MOIS = ["JANVIER", "FÉVRIER", "MARS", "AVRIL", "MAI", "JUIN", "JUILLET", "AOÛT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DÉCEMBRE"];
+
+const KINDS = [
+  { id: "gameday", label: "🏀 Game Day" },
+  { id: "resultat", label: "🏆 Victoire / Défaite" },
+  { id: "mvp", label: "⭐ MVP" },
+];
 
 const slug = (s) =>
   (s || "match")
@@ -15,11 +23,15 @@ const slug = (s) =>
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "") || "match";
 
-export default function GameDayPage({ onBack }) {
+export default function GameDayPage({ currentUser, onBack }) {
   const isMobile = useIsMobile();
   const styles = getStyles(isMobile);
-  const { toast } = useNotify();
+  const { toast, confirm: confirmModal } = useNotify();
+  const isAdmin = currentUser?.role === "admin";
 
+  const [kind, setKind] = useState("gameday");
+
+  // communs
   const [photo, setPhoto] = useState(null);
   const [logo, setLogo] = useState(null);
   const [equipe, setEquipe] = useState("");
@@ -32,6 +44,34 @@ export default function GameDayPage({ onBack }) {
   const [ordre, setOrdre] = useState("adversaire");
   const [logoMode, setLogoMode] = useState("auto");
   const [teams, setTeams] = useState([]);
+
+  // victoire / defaite
+  const [resultat, setResultat] = useState("victoire");
+  const [modele, setModele] = useState("vert");
+  const [scoreBcmf, setScoreBcmf] = useState("");
+  const [scoreAdv, setScoreAdv] = useState("");
+  const [journee, setJournee] = useState("");
+
+  // MVP
+  const [prenomNom, setPrenomNom] = useState("");
+  const [numMaillot, setNumMaillot] = useState("");
+  const [contexte, setContexte] = useState("");
+  const [stats, setStats] = useState([
+    { label: "PTS", value: "" }, { label: "REB", value: "" }, { label: "PD", value: "" }, { label: "EVAL", value: "" },
+  ]);
+
+  // cadrage photo (MVP et modele photo)
+  const [zoom, setZoom] = useState(1);
+  const [focusX, setFocusX] = useState(0.5);
+  const [focusY, setFocusY] = useState(0.35);
+
+  // publication SportsRegions
+  const [pubTeam, setPubTeam] = useState("");
+  const [pubMode, setPubMode] = useState("album");
+  const [pubTitre, setPubTitre] = useState("");
+  const [pubCorps, setPubCorps] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -46,23 +86,62 @@ export default function GameDayPage({ onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fileName = `gameday_${slug(equipe || salle)}.jpg`;
+  const teamChoices = isAdmin
+    ? teams.map((t) => t.name)
+    : (currentUser?.teamsList || []).map((t) => t.name);
+  const canPublish = isAdmin || currentUser?.role === "referent";
+
+  const needsLogo = kind !== "mvp";
+  const framing = kind === "mvp" || (kind === "resultat" && modele === "photo");
+  const prefix = kind === "gameday" ? "gameday" : kind === "mvp" ? "mvp" : resultat;
+  const fileName = `${prefix}_${slug(kind === "mvp" ? prenomNom : equipe || salle)}.jpg`;
 
   async function generate() {
-    if (!photo) return toast("Choisis la photo d'équipe.", "error");
-    if (!logo) return toast("Choisis le logo adverse.", "error");
-    if (!numero.trim()) return toast("Indique le numéro du jour (ex. 10).", "error");
+    if (!photo) return toast(kind === "mvp" ? "Choisis la photo de la joueuse." : "Choisis la photo d'équipe.", "error");
+    if (needsLogo && !logo) return toast("Choisis le logo adverse.", "error");
+    if (kind === "gameday" && !numero.trim()) return toast("Indique le numéro du jour (ex. 10).", "error");
+    if (kind === "resultat" && (scoreBcmf === "" || scoreAdv === "")) return toast("Indique les deux scores.", "error");
+    if (kind === "mvp" && !prenomNom.trim()) return toast("Indique le nom de la joueuse.", "error");
     setBusy(true);
     try {
-      const canvas = await renderPoster({
-        photo, logo, jour, numero: numero.trim(), mois, heure: heure.trim(), equipe: equipe.trim(),
-        salle: salle.trim(), ville: ville.trim(), adversaireGauche: ordre === "adversaire", logoMode,
-        onProgress: setStatus,
-      });
+      let canvas;
+      if (kind === "gameday") {
+        canvas = await renderPoster({
+          photo, logo, jour, numero: numero.trim(), mois, heure: heure.trim(), equipe: equipe.trim(),
+          salle: salle.trim(), ville: ville.trim(), adversaireGauche: ordre === "adversaire", logoMode,
+          onProgress: setStatus,
+        });
+      } else if (kind === "resultat") {
+        canvas = await renderResultPoster({
+          style: modele, resultat, scoreBcmf, scoreAdv, journee: journee.trim(), jour: numero.trim() ? jour : "",
+          numero: numero.trim(), mois: numero.trim() ? mois : "", equipe: equipe.trim(), salle: salle.trim(),
+          ville: ville.trim(), photo, logo, bcmfGauche: ordre !== "adversaire", logoMode, zoom, focusX, focusY,
+          onProgress: setStatus,
+        });
+      } else {
+        canvas = await renderMvpPoster({
+          photo, prenomNom, numero: numMaillot.trim(), contexte: contexte.trim(), stats, zoom, focusX, focusY,
+          onProgress: setStatus,
+        });
+      }
       const blob = await canvasToJpegBlob(canvas);
       blobRef.current = blob;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(blob));
+      setPublished(false);
+      const eq = equipe.trim();
+      const datePart = [jour, numero.trim(), mois].filter(Boolean).join(" ").toLowerCase();
+      if (kind === "gameday") {
+        setPubTitre(`Game Day${eq ? " " + eq : ""} : ${datePart}`);
+        setPubCorps(`Rendez-vous ${datePart} à ${heure.trim()}${salle.trim() ? " - " + salle.trim() : ""}${ville.trim() ? ", " + ville.trim() : ""}. Venez nombreux !`);
+      } else if (kind === "resultat") {
+        setPubTitre(`${resultat === "victoire" ? "Victoire" : "Défaite"}${eq ? " " + eq : ""} : ${scoreBcmf} - ${scoreAdv}`);
+        setPubCorps("");
+      } else {
+        setPubTitre(`MVP : ${prenomNom.trim()}`);
+        setPubCorps("");
+      }
+      if (eq && teamChoices.includes(eq)) setPubTeam(eq);
       setStatus("Affiche prête.");
     } catch (e) {
       console.error(e);
@@ -76,7 +155,6 @@ export default function GameDayPage({ onBack }) {
   async function save() {
     const blob = blobRef.current;
     if (!blob) return;
-    // Chrome / Edge : choix de l'emplacement
     if (window.showSaveFilePicker) {
       try {
         const handle = await window.showSaveFilePicker({
@@ -99,6 +177,56 @@ export default function GameDayPage({ onBack }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
+  async function uploadPoster(folder) {
+    const path = `${folder}/gameday/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const { error } = await supabase.storage.from("bcmf-media").upload(path, blobRef.current, { contentType: "image/jpeg" });
+    if (error) throw new Error("Envoi de l'image impossible : " + error.message);
+    return supabase.storage.from("bcmf-media").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function publish() {
+    if (!blobRef.current) return;
+    if (!pubTeam) return toast("Choisis l'équipe pour la publication.", "error");
+    const mode = isAdmin ? pubMode : "album";
+    if (mode === "actu" && !pubTitre.trim()) return toast("Le titre de l'actualité est obligatoire.", "error");
+    const ok = await confirmModal(
+      mode === "actu"
+        ? `Publier cette actualité sur le site du club (SportsRegions) pour ${pubTeam} ? Elle sera visible par tout le monde.`
+        : `Publier cette affiche dans un album photo SportsRegions pour ${pubTeam} ? Elle sera visible par tout le monde.`
+    );
+    if (!ok) return;
+    setPublishing(true);
+    try {
+      if (mode === "actu") {
+        const url = await uploadPoster("news");
+        const { data: row, error } = await supabase.from("news").insert([{
+          titre: pubTitre.trim(), chapo: "", corps: pubCorps.trim(), team_name: pubTeam,
+          illustration_url: url, published_by: currentUser.name, synced: false,
+        }]).select().single();
+        if (error) throw new Error(error.message);
+        const res = await publishNewsToSportsRegions(row);
+        if (!res.success) throw new Error(res.error);
+        await supabase.from("news").update({ synced: true }).eq("id", row.id);
+      } else {
+        const url = await uploadPoster("publications");
+        const { data: row, error } = await supabase.from("publications").insert([{
+          team_name: pubTeam, photos: [url], published_by: currentUser.name, synced: false,
+        }]).select().single();
+        if (error) throw new Error(error.message);
+        const res = await publishToSportsRegions(row);
+        if (!res.success) throw new Error(res.error);
+        await supabase.from("publications").update({ synced: true }).eq("id", row.id);
+      }
+      setPublished(true);
+      toast("Publié sur SportsRegions.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("Publication impossible : " + (e.message || e), "error");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const label = { display: "block", fontWeight: "bold", fontSize: 13, margin: "10px 0 4px", color: "#334155" };
   const fileBox = (file, ref, onPick, text) => (
     <div>
@@ -108,62 +236,146 @@ export default function GameDayPage({ onBack }) {
       <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onPick(e.target.files?.[0] || null)} />
     </div>
   );
+  const chip = (active) => (active ? styles.orangeButton : styles.darkButton);
+
+  const dateFields = (
+    <>
+      <label style={label}>Date{kind === "resultat" ? " (facultatif)" : ""}</label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <select style={{ ...styles.input, flex: 2 }} value={jour} onChange={(e) => setJour(e.target.value)}>{JOURS.map((j) => <option key={j}>{j}</option>)}</select>
+        <input style={{ ...styles.input, flex: 1, minWidth: 0 }} value={numero} onChange={(e) => setNumero(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="10" inputMode="numeric" />
+        <select style={{ ...styles.input, flex: 2 }} value={mois} onChange={(e) => setMois(e.target.value)}>{MOIS.map((m) => <option key={m}>{m}</option>)}</select>
+      </div>
+    </>
+  );
 
   return (
     <div>
       <button style={styles.backButton} onClick={onBack}>← Retour</button>
-      <h2 style={styles.sectionTitle}>🏀 Affiches Game Day</h2>
+      <h2 style={styles.sectionTitle}>🏀 Affiches</h2>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {KINDS.map((k) => (
+          <button key={k.id} style={chip(kind === k.id)} onClick={() => { setKind(k.id); setOrdre(k.id === "resultat" ? "bcmf" : "adversaire"); }}>{k.label}</button>
+        ))}
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(320px, 420px) 1fr", gap: 20, alignItems: "start" }}>
         <section style={styles.panel}>
-          <label style={{ ...label, marginTop: 0 }}>Photo d'équipe</label>
+          {kind === "resultat" && (
+            <>
+              <label style={{ ...label, marginTop: 0 }}>Résultat</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={chip(resultat === "victoire")} onClick={() => setResultat("victoire")}>Victoire</button>
+                <button style={chip(resultat === "defaite")} onClick={() => setResultat("defaite")}>Défaite</button>
+              </div>
+              <label style={label}>Modèle</label>
+              <select style={styles.input} value={modele} onChange={(e) => setModele(e.target.value)}>
+                <option value="vert">Fond vert + équipe détourée</option>
+                <option value="photo">Photo plein fond + panneau vert</option>
+              </select>
+            </>
+          )}
+
+          <label style={{ ...label, marginTop: kind === "resultat" ? 10 : 0 }}>
+            {kind === "mvp" ? "Photo de la joueuse" : modele === "photo" && kind === "resultat" ? "Photo (plein fond)" : "Photo d'équipe"}
+          </label>
           {fileBox(photo, photoRef, setPhoto, "📷 Choisir la photo")}
-          <label style={label}>Logo adverse</label>
-          {fileBox(logo, logoRef, setLogo, "🛡️ Choisir le logo")}
 
-          <label style={label}>Nom de l'équipe (affiché en vertical)</label>
-          <input list="gd-teams" style={styles.input} value={equipe} onChange={(e) => setEquipe(e.target.value)} placeholder="ex. U11 F" />
-          <datalist id="gd-teams">{teams.map((t) => <option key={t.name} value={t.name} />)}</datalist>
+          {needsLogo && (
+            <>
+              <label style={label}>Logo adverse</label>
+              {fileBox(logo, logoRef, setLogo, "🛡️ Choisir le logo")}
+            </>
+          )}
 
-          <label style={label}>Date</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <select style={{ ...styles.input, flex: 2 }} value={jour} onChange={(e) => setJour(e.target.value)}>{JOURS.map((j) => <option key={j}>{j}</option>)}</select>
-            <input style={{ ...styles.input, flex: 1, minWidth: 0 }} value={numero} onChange={(e) => setNumero(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="10" inputMode="numeric" />
-            <select style={{ ...styles.input, flex: 2 }} value={mois} onChange={(e) => setMois(e.target.value)}>{MOIS.map((m) => <option key={m}>{m}</option>)}</select>
-          </div>
+          {kind === "mvp" ? (
+            <>
+              <label style={label}>Prénom et nom</label>
+              <input style={styles.input} value={prenomNom} onChange={(e) => setPrenomNom(e.target.value)} placeholder="ex. Mariana Muadi" />
+              <label style={label}>Numéro de maillot</label>
+              <input style={styles.input} value={numMaillot} onChange={(e) => setNumMaillot(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="12" inputMode="numeric" />
+              <label style={label}>Contexte (facultatif)</label>
+              <input style={styles.input} value={contexte} onChange={(e) => setContexte(e.target.value)} placeholder="ex. Finale, 2ème journée" />
+              <label style={label}>Statistiques (laisser vide pour ne pas afficher)</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {stats.map((st, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6 }}>
+                    <input style={{ ...styles.input, width: "50%", minWidth: 0 }} value={st.label} onChange={(e) => setStats(stats.map((x, k) => (k === i ? { ...x, label: e.target.value.toUpperCase().slice(0, 6) } : x)))} />
+                    <input style={{ ...styles.input, width: "50%", minWidth: 0 }} value={st.value} placeholder="–" onChange={(e) => setStats(stats.map((x, k) => (k === i ? { ...x, value: e.target.value.slice(0, 3) } : x)))} />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <label style={label}>Nom de l'équipe{kind === "gameday" ? " (affiché en vertical)" : ""}</label>
+              <input list="gd-teams" style={styles.input} value={equipe} onChange={(e) => setEquipe(e.target.value)} placeholder="ex. U11 F" />
+              <datalist id="gd-teams">{teams.map((t) => <option key={t.name} value={t.name} />)}</datalist>
 
-          <label style={label}>Heure</label>
-          <input style={styles.input} value={heure} onChange={(e) => setHeure(e.target.value)} placeholder="14H00" />
-          <label style={label}>Salle</label>
-          <input style={styles.input} value={salle} onChange={(e) => setSalle(e.target.value)} placeholder="ex. Gymnase M. J.Guimier" />
-          <label style={label}>Ville</label>
-          <input style={styles.input} value={ville} onChange={(e) => setVille(e.target.value)} placeholder="ex. Rive-de-Gier" />
+              {kind === "resultat" && (
+                <>
+                  <label style={label}>Score</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input style={{ ...styles.input, minWidth: 0 }} value={scoreBcmf} onChange={(e) => setScoreBcmf(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="BCMF" inputMode="numeric" />
+                    <span>-</span>
+                    <input style={{ ...styles.input, minWidth: 0 }} value={scoreAdv} onChange={(e) => setScoreAdv(e.target.value.replace(/\D/g, "").slice(0, 3))} placeholder="Adversaire" inputMode="numeric" />
+                  </div>
+                  <label style={label}>Journée / compétition (facultatif)</label>
+                  <input style={styles.input} value={journee} onChange={(e) => setJournee(e.target.value)} placeholder="ex. 2ème journée" />
+                </>
+              )}
 
-          <label style={label}>Ordre des logos</label>
-          <select style={styles.input} value={ordre} onChange={(e) => setOrdre(e.target.value)}>
-            <option value="adversaire">Adversaire à gauche</option>
-            <option value="bcmf">BCMF à gauche</option>
-          </select>
-          <label style={label}>Logo adverse</label>
-          <select style={styles.input} value={logoMode} onChange={(e) => setLogoMode(e.target.value)}>
-            <option value="auto">Auto</option>
-            <option value="cadre">Cadre blanc (logo flou ou fond blanc)</option>
-            <option value="detour">Détourer le fond blanc</option>
-          </select>
+              {dateFields}
+              {kind === "gameday" && (
+                <>
+                  <label style={label}>Heure</label>
+                  <input style={styles.input} value={heure} onChange={(e) => setHeure(e.target.value)} placeholder="14H00" />
+                </>
+              )}
+              <label style={label}>Salle{kind === "resultat" ? " (facultatif)" : ""}</label>
+              <input style={styles.input} value={salle} onChange={(e) => setSalle(e.target.value)} placeholder="ex. Gymnase M. J.Guimier" />
+              <label style={label}>Ville{kind === "resultat" ? " (facultatif)" : ""}</label>
+              <input style={styles.input} value={ville} onChange={(e) => setVille(e.target.value)} placeholder="ex. Rive-de-Gier" />
 
-          <button style={busy ? styles.disabledButton : styles.orangeButton} disabled={busy} onClick={generate} >
+              <label style={label}>Ordre des logos{kind === "resultat" ? " / scores" : ""}</label>
+              <select style={styles.input} value={ordre} onChange={(e) => setOrdre(e.target.value)}>
+                <option value="adversaire">Adversaire à gauche{kind === "resultat" ? " (ou en haut)" : ""}</option>
+                <option value="bcmf">BCMF à gauche{kind === "resultat" ? " (ou en haut)" : ""}</option>
+              </select>
+              <label style={label}>Logo adverse</label>
+              <select style={styles.input} value={logoMode} onChange={(e) => setLogoMode(e.target.value)}>
+                <option value="auto">Auto</option>
+                <option value="cadre">Cadre blanc (logo flou ou fond blanc)</option>
+                <option value="detour">Détourer le fond blanc</option>
+              </select>
+            </>
+          )}
+
+          {framing && (
+            <>
+              <label style={label}>Cadrage de la photo</label>
+              <div style={{ fontSize: 12, color: "#64748b" }}>Zoom</div>
+              <input type="range" min="1" max="2.5" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} style={{ width: "100%" }} />
+              <div style={{ fontSize: 12, color: "#64748b" }}>Gauche ↔ droite</div>
+              <input type="range" min="0" max="1" step="0.02" value={focusX} onChange={(e) => setFocusX(Number(e.target.value))} style={{ width: "100%" }} />
+              <div style={{ fontSize: 12, color: "#64748b" }}>Haut ↔ bas</div>
+              <input type="range" min="0" max="1" step="0.02" value={focusY} onChange={(e) => setFocusY(Number(e.target.value))} style={{ width: "100%" }} />
+            </>
+          )}
+
+          <button style={busy ? styles.disabledButton : styles.orangeButton} disabled={busy} onClick={generate}>
             {busy ? "Génération…" : "Générer l'affiche"}
           </button>
           {status && <div style={{ marginTop: 10, fontSize: 13, color: "#475569" }}>{status}</div>}
           <div style={{ marginTop: 10, fontSize: 12, color: "#64748b" }}>
-            🔒 Les photos restent sur votre appareil : le détourage se fait dans le navigateur, rien n'est envoyé.
+            🔒 Les photos restent sur votre appareil : le traitement se fait dans le navigateur, rien n'est envoyé.
           </div>
         </section>
 
         <section style={{ ...styles.panel, textAlign: "center" }}>
           {previewUrl ? (
             <>
-              <div style={{ width: "100%", maxWidth: isMobile ? 520 : "min(560px, 62vh)", aspectRatio: "4 / 5", margin: "0 auto" }}>
+              <div style={{ width: "100%", maxWidth: isMobile ? 520 : "min(560px, 62vh)", aspectRatio: kind === "mvp" ? "1 / 1" : "4 / 5", margin: "0 auto" }}>
                 <img
                   src={previewUrl}
                   alt="Affiche"
@@ -173,6 +385,39 @@ export default function GameDayPage({ onBack }) {
               <div style={{ marginTop: 14 }}>
                 <button style={styles.orangeButton} onClick={save}>💾 Enregistrer l'affiche…</button>
               </div>
+
+              {canPublish && (
+                <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid #e2e8f0", textAlign: "left", maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>📣 Publier sur SportsRegions</div>
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                      <button style={chip(pubMode === "album")} onClick={() => setPubMode("album")}>Album photo</button>
+                      <button style={chip(pubMode === "actu")} onClick={() => setPubMode("actu")}>Actualité</button>
+                    </div>
+                  )}
+                  <label style={{ ...label, marginTop: 4 }}>Équipe</label>
+                  <select style={styles.input} value={pubTeam} onChange={(e) => setPubTeam(e.target.value)}>
+                    <option value="">— choisir —</option>
+                    {teamChoices.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  {isAdmin && pubMode === "actu" && (
+                    <>
+                      <label style={label}>Titre</label>
+                      <input style={styles.input} value={pubTitre} onChange={(e) => setPubTitre(e.target.value)} />
+                      <label style={label}>Texte (facultatif)</label>
+                      <textarea style={{ ...styles.input, minHeight: 80, fontFamily: "inherit" }} value={pubCorps} onChange={(e) => setPubCorps(e.target.value)} />
+                    </>
+                  )}
+                  <div style={{ marginTop: 10 }}>
+                    <button style={publishing || published ? styles.disabledButton : styles.orangeButton} disabled={publishing || published} onClick={publish}>
+                      {publishing ? "Publication…" : published ? "✅ Publié" : isAdmin && pubMode === "actu" ? "Publier l'actualité" : "Publier dans un album"}
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
+                    {isAdmin ? "Les référents ne peuvent publier que dans un album photo." : "Les actualités sont réservées aux administrateurs."}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ color: "#64748b", padding: 40 }}>
