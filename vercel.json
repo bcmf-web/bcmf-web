@@ -1,4 +1,13 @@
 {
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        { "type": "host", "value": "(www\\.)?montbrison-forezbasketfeminin\\.com" }
+      ],
+      "destination": "/lf2-intro.html"
+    }
+  ],
   "headers": [
     {
       "source": "/rejoindre.html",
