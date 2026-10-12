@@ -1,11 +1,12 @@
 {
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
       "has": [
-        { "type": "host", "value": "(www\\.)?montbrison-forezbasketfeminin\\.com" }
+        { "type": "host", "value": "(www\.)?montbrison-forezbasketfeminin\.com" }
       ],
-      "destination": "/lf2-intro.html"
+      "destination": "/lf2-intro.html",
+      "permanent": false
     }
   ],
   "headers": [
