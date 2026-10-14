@@ -300,6 +300,70 @@ async function uploadPhotos(
   return debugLog;
 }
 
+// ── Jetons de sécurité des formulaires d'actualité ─────────────────────────
+// SportsRegions exige un jeton CSRF (champ caché) pour enregistrer une actualité.
+// On lit la page du formulaire, on récupère les champs cachés de type csrf/token
+// et on garde les cookies posés au passage.
+function parseCookieString(s: string): Record<string, string> {
+  const jar: Record<string, string> = {};
+  for (const part of s.split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0) jar[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return jar;
+}
+
+async function fetchFormTokens(
+  cookies: string,
+  paths: string[]
+): Promise<{ cookies: string; tokens: [string, string][]; debug: string }> {
+  const jar = parseCookieString(cookies);
+  const debug: string[] = [];
+  for (const path of paths) {
+    const resp = await fetch(`${SR_BASE}${path}`, {
+      headers: { "Cookie": jarToString(jar), "User-Agent": "Mozilla/5.0" },
+      redirect: "follow",
+    });
+    collectCookies(jar, resp.headers);
+    const html = await resp.text();
+
+    const tokens: [string, string][] = [];
+    // Attribut avec ou sans guillemets : name="x", name='x' ou name=x
+    const attr = (tag: string, key: string): string | undefined => {
+      const m = tag.match(new RegExp(`\\b${key}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+      return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+    };
+    for (const tag of html.matchAll(/<input\b[^>]*>/gi)) {
+      const name  = attr(tag[0], "name");
+      const value = attr(tag[0], "value") ?? "";
+      if (name && /csrf|token/i.test(name) && !tokens.some(([n]) => n === name)) tokens.push([name, value]);
+    }
+    // Repli : <meta name="csrf-token" content="..."> (le script csrf.js du site le recopie dans csrf_token)
+    if (tokens.length === 0) {
+      for (const tag of html.matchAll(/<meta\b[^>]*>/gi)) {
+        if (attr(tag[0], "name")?.toLowerCase() === "csrf-token") {
+          const content = attr(tag[0], "content");
+          if (content) tokens.push(["csrf_token", content]);
+        }
+      }
+    }
+    let detail = "";
+    if (resp.status === 200 && tokens.length === 0) {
+      // Diagnostic : à quoi ressemble le formulaire ? (noms de champs, mentions de csrf/token, actions de formulaire)
+      const names = [...html.matchAll(/<(?:input|select|textarea)\b[^>]*\bname\s*=\s*["']([^"']+)["']/gi)]
+        .map(m => m[1]).slice(0, 40).join(",");
+      const hits = [...html.matchAll(/.{0,50}(?:csrf|token|nonce).{0,70}/gi)]
+        .map(m => m[0].replace(/\s+/g, " ")).slice(0, 5).join(" | ");
+      const actions = [...html.matchAll(/<form\b[^>]*\baction\s*=\s*["']([^"']*)["']/gi)].map(m => m[1]).slice(0, 3).join(",");
+      const title = html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim() ?? "";
+      detail = ` [titre="${title}" actions=${actions} champs=${names} indices=${hits}]`;
+    }
+    debug.push(`${path} → HTTP ${resp.status}, ${tokens.length} jeton(s)${detail}`);
+    if (tokens.length > 0) return { cookies: jarToString(jar), tokens, debug: debug.join("; ") };
+  }
+  return { cookies: jarToString(jar), tokens: [], debug: debug.join("; ") };
+}
+
 // ── 4. Publier une actualité ───────────────────────────────────────────────
 async function publishNews(
   cookies: string,
@@ -368,6 +432,13 @@ async function publishNews(
     return ids;
   }
 
+  // Jeton de sécurité du formulaire de création (obligatoire côté SportsRegions)
+  const formTokens = await fetchFormTokens(cookies, [
+    "/actualite/edit", "/actualite/add", "/actualite/popup_new_actualite", "/actualite/new", "/actualite",
+  ]);
+  cookies = formTokens.cookies;
+  for (const [name, value] of formTokens.tokens) createParams.set(name, value);
+
   const beforeIds = await listNewsIds();
 
   const createResp = await fetch(`${SR_BASE}/actualite/submit`, {
@@ -385,7 +456,10 @@ async function publishNews(
     newsId = [...afterIds].find(id => !beforeIds.has(id)) ?? null;
   }
   if (!newsId) {
-    throw new Error(`Impossible de trouver l'ID de la news créée (création HTTP ${createResp.status}, location="${loc1}")`);
+    const snippet = (await createResp.text().catch(() => ""))
+      .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`Impossible de trouver l'ID de la news créée (création HTTP ${createResp.status}, location="${loc1}") — ${snippet} — jetons: ${formTokens.debug}`);
   }
 
   // ── Étape 2 : uploader l'illustration si fournie ──────────────────────────
@@ -447,9 +521,16 @@ async function publishNews(
 
   // ── Étape 3 : mettre à jour avec le contenu complet + publier ────────────
   updateParams.set("askforautopublish", "1");
-  await fetch(`${SR_BASE}/actualite/submit/${newsId}?askforautopublish=1`, {
+  const editTokens = await fetchFormTokens(cookies, [`/actualite/edit/${newsId}`]);
+  cookies = editTokens.cookies;
+  for (const [name, value] of editTokens.tokens) updateParams.set(name, value);
+
+  const updateResp = await fetch(`${SR_BASE}/actualite/submit/${newsId}?askforautopublish=1`, {
     method: "POST", headers: headers(String(newsId)), body: updateParams.toString(), redirect: "manual",
   });
+  if (updateResp.status >= 400) {
+    throw new Error(`Article ${newsId} créé mais mise en ligne refusée (HTTP ${updateResp.status}) — jetons: ${editTokens.debug}`);
+  }
 
   return newsId;
 }
