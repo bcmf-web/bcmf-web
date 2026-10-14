@@ -357,9 +357,18 @@ async function publishNews(
   });
   if (groupeId) { createParams.append("groupe_id[]", groupeId); } else { createParams.append("allGroupeCheck", ""); }
 
-  const beforeResp = await fetch(`${SR_BASE}/actualite`, { headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" } });
-  const beforeHtml = await beforeResp.text();
-  const beforeIds  = new Set([...beforeHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10)));
+  // La liste par défaut peut ne pas montrer les articles hors ligne : on lit aussi status=1 et status=2
+  async function listNewsIds(): Promise<Set<number>> {
+    const ids = new Set<number>();
+    for (const path of ["/actualite", "/actualite?status=1", "/actualite?status=2"]) {
+      const r = await fetch(`${SR_BASE}${path}`, { headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" } });
+      const h = await r.text();
+      for (const m of h.matchAll(/actualite\/edit\/(\d+)/g)) ids.add(parseInt(m[1], 10));
+    }
+    return ids;
+  }
+
+  const beforeIds = await listNewsIds();
 
   const createResp = await fetch(`${SR_BASE}/actualite/submit`, {
     method: "POST", headers: headers(), body: createParams.toString(), redirect: "manual",
@@ -372,12 +381,12 @@ async function publishNews(
   if (m1) {
     newsId = parseInt(m1[1], 10);
   } else {
-    const afterResp = await fetch(`${SR_BASE}/actualite`, { headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" } });
-    const afterHtml = await afterResp.text();
-    const afterIds  = [...afterHtml.matchAll(/actualite\/edit\/(\d+)/g)].map(m => parseInt(m[1], 10));
-    newsId = afterIds.find(id => !beforeIds.has(id)) ?? null;
+    const afterIds = await listNewsIds();
+    newsId = [...afterIds].find(id => !beforeIds.has(id)) ?? null;
   }
-  if (!newsId) throw new Error(`Impossible de trouver l'ID de la news créée`);
+  if (!newsId) {
+    throw new Error(`Impossible de trouver l'ID de la news créée (création HTTP ${createResp.status}, location="${loc1}")`);
+  }
 
   // ── Étape 2 : uploader l'illustration si fournie ──────────────────────────
   const updateParams = buildParams(String(newsId));

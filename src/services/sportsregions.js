@@ -16,10 +16,19 @@ export async function publishToSportsRegions(pub) {
     },
   });
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: await errorMessage(error) };
   if (data?.error) return { success: false, error: data.error };
 
   return { success: true, album_id: data?.album_id };
+}
+
+/** Récupère le vrai message renvoyé par la fonction (au lieu du générique "non-2xx"). */
+async function errorMessage(error) {
+  try {
+    const body = await error.context?.json?.();
+    if (body?.error) return body.error;
+  } catch { /* corps non lisible : on garde le message générique */ }
+  return error.message;
 }
 
 export async function publishNewsToSportsRegions(news) {
@@ -34,7 +43,7 @@ export async function publishNewsToSportsRegions(news) {
     },
   });
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: await errorMessage(error) };
   if (data?.error) return { success: false, error: data.error };
 
   return { success: true, news_id: data?.news_id };
