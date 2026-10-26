@@ -1,225 +1,177 @@
-BCMF FLOW - README DEVELOPPEMENT
+BCMF FLOW (« BCMF Crew ») - README DEVELOPPEMENT
 
-Version actuelle : v0.2.0-beta
+État au 26/10/2026
+Adresse : https://bcmf-web.vercel.app/
+
+Documentation technique détaillée (architecture, fonctions, déploiement, pièges) : CLAUDE.md à la racine du dépôt.
+Manuel utilisateur pour les non-initiés : document « BCMF Crew : manuel utilisateur ».
 
 ====================================================
 OBJECTIF DU PROJET
-==================
+====================================================
 
-BCMF Flow est une application web destinée au BCMF afin de gérer :
+BCMF Crew est l'application web du Basket Club Montbrison Féminin (BCMF). Elle sert à :
 
-* Les bénévoles
-* Les événements
-* Les missions
-* Les habilitations
-* Les partenaires du club
+* Gérer les bénévoles (inscription, validation, rôles, équipes, habilitations)
+* Organiser les événements et leurs missions bénévoles
+* Créer les affiches de match (Game Day, Victoire / Défaite, MVP)
+* Publier photos et actualités sur le site du club (bcmf.sportsregions.fr)
+* Présenter les partenaires du club
+* Suivre les statistiques de bénévolat
 
-Technologies utilisées :
+Les publications du site du club sont ensuite relayées automatiquement sur la Page Facebook
+(dépôt séparé bcmf-web/bcmf-facebook).
 
-* React
-* Vite
-* Supabase
-* Vercel
+Technologies :
+
+* React 19 + Vite (front, PWA installable)
+* Supabase (Auth, base Postgres, Storage « bcmf-media », Edge Functions)
+* Vercel (hébergement, déploiement automatique depuis GitHub)
+* onnxruntime-web (détourage des photos dans le navigateur)
+* jsPDF / xlsx (exports et imports)
 
 ====================================================
-AUTHENTIFICATION
-================
+RÔLES ET ACCÈS
+====================================================
 
-Connexion via Supabase Auth.
+Rôles (users.role) :
 
-Fonctionnalités :
+* benevole  : voir les événements, s'inscrire aux missions, voir les partenaires
+* referent  : + créer et gérer les événements de son équipe, affiches, publications
+* admin     : + utilisateurs, équipes et compétences, statistiques, mise en ligne
 
-* Connexion
-* Déconnexion
-* Création de compte
-* Validation des bénévoles par un administrateur
+Statuts de compte (users.status) :
 
-Formulaire d'inscription :
-
-* Prénom
-* Nom
-* Téléphone
-* Email
-* Mot de passe
-* Confirmation mot de passe
-
-Contrôles :
-
-* Champs obligatoires
-* Vérification correspondance mot de passe
+* pending  (en attente de validation)
+* approved (validé)
+* rejected (refusé)
 
 ====================================================
-TABLE USERS
-===========
+AUTHENTIFICATION ET PROFIL
+====================================================
 
-Table : users
-
-Colonnes principales :
-
-* id
-* email
-* first_name
-* last_name
-* name
-* phone
-* role
-* team
-* status
-* skills
-
-Roles :
-
-* admin
-* benevole
-
-Status :
-
-* pending
-* approved
-* rejected
+* Connexion par email et mot de passe (Supabase Auth)
+* Inscription : prénom, nom, téléphone, email, mot de passe (x2), équipe(s)
+  → compte « pending » jusqu'à validation par un admin
+* Mot de passe oublié : email de réinitialisation
+* Mon profil (clic sur son nom dans le bandeau) : prénom, nom, téléphone modifiables,
+  email non modifiable
+* Notifications push : bouton cloche « Activer les notifications »
 
 ====================================================
-GESTION DES UTILISATEURS
-========================
+ÉVÉNEMENTS ET MISSIONS
+====================================================
 
-Page : Admin Users
+Événements :
 
-Fonctionnalités :
+* Types : Match Amateur, Match Pro, Tournoi, Événement club
+* Dates de début et de fin, équipes concernées
+* Création par un admin ou un référent
 
-* Liste des utilisateurs
-* Validation / refus
-* Attribution des rôles
-* Affectation des équipes
-* Gestion des habilitations
+Missions :
 
-Interface :
-
-* Fenêtre popup "Modifier utilisateur"
-* Informations personnelles en lecture seule
-* Gestion club modifiable
-
-Informations affichées :
-
-* Nom
-* Email
-* Téléphone
-* Statut
-* Rôle
-* Équipe
-* Habilitations
+* Nom, nombre de bénévoles, plage horaire (passage de minuit géré), habilitation requise
+* Bénévole : « Je me propose » (avec choix du créneau si la plage est longue),
+  « Me désinscrire »
+* États : Je me propose / Mission complète / Non habilité
+* Admin ou référent : inscrire ou désinscrire un bénévole
+* Vue Planning (frise horaire de couverture)
+* Exports CSV / PDF de l'événement et du planning
+* Rappel push 24 h avant chaque mission (Edge Function notify-upcoming-missions + cron)
 
 ====================================================
-MON PROFIL
-==========
+AFFICHES (Game Day)
+====================================================
 
-Accessible en cliquant sur le nom de l'utilisateur dans le bandeau supérieur.
+Trois modèles, dessinés dans le navigateur (canvas) :
 
-Informations modifiables :
+* Game Day (avant match, 1600x2000)
+* Victoire / Défaite (2 modèles : fond vert + équipe détourée, photo plein fond + panneau vert)
+* MVP (carré 1600x1600 : nom, numéro, contexte, 4 statistiques, recadrage de la photo)
 
-* Prénom
-* Nom
-* Téléphone
+Fonctions :
 
-Informations non modifiables :
-
-* Email
-
-Après enregistrement :
-
-* Mise à jour Supabase
-* Relecture du profil
-* Rafraîchissement immédiat du bandeau
+* Détourage automatique de la photo d'équipe (modèle IS-Net, public/gameday/isnet-q.onnx)
+  Styles « Détourée » ou « Fondu »
+* Retouche manuelle du détourage : Restaurer / Gommer
+* Logo adverse : fond blanc retiré automatiquement, ou badge blanc
+* Téléchargement JPEG, ou publication directe (album de l'équipe ou actualité)
 
 ====================================================
-GESTION DES EVENEMENTS
-======================
+PUBLICATIONS (SportsRegions)
+====================================================
 
-Fonctionnalités existantes :
+Tables : publications (photos), news (actualités). Champ synced = déjà en ligne.
 
-* Liste des événements
-* Couverture des missions
-* Participation bénévole
-* Dashboard principal
+* Photos : équipe, photos, légende facultative → album « Saison AAAA-AAAA - Équipe »
+* Actualités : titre, chapô, texte, équipe, illustration
+* « Mettre en ligne » (admin) → Edge Function sync-sportsregions
+* « ✔ Déjà en ligne » (admin) : marque comme publié sans renvoyer au site
+  (cas d'une erreur 503 alors que l'article est bien en ligne)
 
-A améliorer :
+====================================================
+TABLES PRINCIPALES
+====================================================
 
-* Gestion avancée des équipes
-* Calendrier
-* Export
+* users, teams, user_teams, skills
+* events, event_teams, missions, assignments
+* partners
+* publications, news
+* push_subscriptions
 
 ====================================================
 PARTENAIRES
-===========
+====================================================
 
-Table : partners
+Table : partners (name, category, description, website, phone, email, logo_url, active)
 
-Colonnes :
+Catégories : Commerces, Restauration, Industriels, Services, BTP, Loisirs
 
-* id
-* name
-* category
-* description
-* website
-* phone
-* email
-* logo_url
-* active
-
-Catégories :
-
-* Commerces
-* Restauration
-* Industriels
-* BTP
-* Loisirs
-
-Fonctionnalités :
-
-* Consultation partenaires
-* Ajout partenaire
-* Activation / désactivation
-* Suppression partenaire
-
-Affichage :
-
-* Onglets par catégorie
+* Consultation par onglets de catégorie
+* Ajout avec logo (2 Mo max), activation / désactivation, suppression
+* Import depuis le site WordPress du club (Edge Function add-partners)
 
 ====================================================
-INTERFACE
-=========
+ADMINISTRATION
+====================================================
 
-Thème BCMF :
-
-* Vert
-* Blanc
-* Noir
-
-Améliorations réalisées :
-
-* Popup inscription moderne
-* Popup administration utilisateurs
-* Popup profil utilisateur
-* Navigation partenaires
+* Administration utilisateurs : validation, rôle, équipes, habilitations, recherche, filtres
+* Import en masse de bénévoles (Excel / CSV : Nom, Prénom, Email, Téléphone, Équipe(s))
+  avec mot de passe générique (6 caractères min.)
+* Équipes & Compétences : ajout, modification, activation, suppression
+* Statistiques & Exports : bénévoles actifs, inscriptions, heures, couverture ;
+  vues par bénévole et par événement ; exports CSV / PDF
 
 ====================================================
-DEPLOIEMENT
-===========
+EDGE FUNCTIONS SUPABASE
+====================================================
 
-GitHub
+* sync-sportsregions        : publication des actualités et albums sur le site du club
+* add-partners              : import des partenaires WordPress vers SportsRegions
+* bulk-add-volunteers       : création de comptes en masse (admin)
+* send-push                 : envoi de notifications push
+* notify-upcoming-missions  : rappels 24 h avant les missions
+* facebook-posts            : derniers posts de la Page Facebook (widget public/facebook-feed.html)
 
-Commande :
+====================================================
+DÉPLOIEMENT
+====================================================
+
+Front :
 
 git add .
 git commit -m "message"
 git push
+→ déploiement automatique GitHub -> Vercel
 
-Déploiement automatique :
+Edge Functions :
 
-GitHub -> Vercel
+Dashboard Supabase → Edge Functions → la fonction → onglet Code → coller → Deploy
+(le CLI Supabase ne fonctionne pas depuis le PC du club / réseau d'entreprise)
 
 ====================================================
 VERSIONS
-========
+====================================================
 
 v0.1-beta
 
@@ -240,27 +192,25 @@ v0.2.0-beta
 * Popup administration utilisateurs
 * Catégories partenaires
 
+Depuis (jusqu'à octobre 2026)
+
+* Rôle référent
+* Créneaux de mission, vue Planning, exports CSV / PDF
+* Équipes et compétences en base (page de configuration)
+* Notifications push et rappels 24 h avant les missions
+* Import en masse des bénévoles
+* Statistiques & Exports
+* Publications photos et actualités vers SportsRegions
+* Affiches Game Day, Victoire / Défaite, MVP avec détourage automatique
+* Relais automatique vers Facebook (dépôt bcmf-facebook) et widget des posts Facebook
+* Correction du faux échec 503 à la mise en ligne + bouton « Déjà en ligne »
+
 ====================================================
-ROADMAP
-=======
+ROADMAP (à confirmer)
+====================================================
 
-Priorité haute :
-
-* Upload logo partenaires
-* Teams dynamiques en base
-* Skills dynamiques en base
-* Responsive mobile
-
-Priorité moyenne :
-
+* Calendrier bénévoles
 * Partenaires Premium
 * Recherche partenaire
-* Historique connexions
-* Gestion mot de passe
-
-Long terme :
-
-* Application mobile
-* Notifications
-* Calendrier bénévoles
-* Statistiques bénévolat
+* Historique des connexions
+* Application mobile native
