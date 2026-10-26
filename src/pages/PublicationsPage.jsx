@@ -269,6 +269,13 @@ export default function PublicationsPage({ currentUser, onBack }) {
     setSyncing(null);
   }
 
+  // Régularise une actualité déjà en ligne sur SportsRegions (sans rien renvoyer au site)
+  async function handleNewsMarkSynced(news) {
+    if (!confirm("Marquer cette actualité comme déjà en ligne sur SportsRegions ?\n(Rien ne sera envoyé au site.)")) return;
+    await supabase.from("news").update({ synced: true }).eq("id", news.id);
+    setNewsList((prev) => prev.map((n) => n.id === news.id ? { ...n, synced: true } : n));
+  }
+
   async function handleNewsDelete(id) {
     if (!confirm("Supprimer cette actualité ?")) return;
     await supabase.from("news").delete().eq("id", id);
@@ -478,6 +485,11 @@ export default function PublicationsPage({ currentUser, onBack }) {
                   {isAdmin && !news.synced && (
                     <button onClick={() => handleNewsSync(news)} disabled={syncing === news.id} style={syncBtnStyle(syncing === news.id)}>
                       {syncing === news.id ? "⏳ Envoi..." : "🌐 Mettre en ligne"}
+                    </button>
+                  )}
+                  {isAdmin && !news.synced && (
+                    <button onClick={() => handleNewsMarkSynced(news)} disabled={syncing === news.id} style={deleteBtnStyle}>
+                      ✔ Déjà en ligne
                     </button>
                   )}
                   {news.synced && <span style={onlineBadge}>✅ En ligne</span>}

@@ -529,10 +529,38 @@ async function publishNews(
     method: "POST", headers: headers(String(newsId)), body: updateParams.toString(), redirect: "manual",
   });
   if (updateResp.status >= 400) {
+    // SportsRegions renvoie parfois une erreur (503…) alors que l'article est bien passé en ligne.
+    // On vérifie l'état réel avant de signaler un échec — et on ne relance jamais la mise en ligne
+    // (risque de doublon).
+    if (await isNewsOnline(cookies, newsId)) {
+      console.warn(`[news ${newsId}] mise en ligne confirmée malgré HTTP ${updateResp.status}`);
+      return newsId;
+    }
     throw new Error(`Article ${newsId} créé mais mise en ligne refusée (HTTP ${updateResp.status}) — jetons: ${editTokens.debug}`);
   }
 
   return newsId;
+}
+
+// Relit la page d'édition (avec quelques essais espacés) et cherche « Statut : en ligne ».
+async function isNewsOnline(cookies: string, newsId: number): Promise<boolean> {
+  for (const waitMs of [1500, 3000, 5000]) {
+    await new Promise((r) => setTimeout(r, waitMs));
+    try {
+      const resp = await fetch(`${SR_BASE}/actualite/edit/${newsId}`, {
+        headers: { "Cookie": cookies, "User-Agent": "Mozilla/5.0" },
+      });
+      if (!resp.ok) continue;
+      const text = (await resp.text())
+        .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;|&#160;/gi, " ")
+        .replace(/\s+/g, " ");
+      if (/statut\s*:\s*en\s*ligne/i.test(text)) return true;
+      if (/statut\s*:\s*hors\s*ligne/i.test(text)) continue;
+    } catch (_) { /* on réessaie */ }
+  }
+  return false;
 }
 
 // ── Handler principal ──────────────────────────────────────────────────────
