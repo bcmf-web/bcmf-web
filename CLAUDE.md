@@ -87,7 +87,8 @@ Une seule page React. La navigation se fait par un état `page` dans `src/App.js
 
 **Publications** (`PublicationsPage`)
 - **Photos** : les photos sont envoyées dans Storage puis enregistrées dans `publications`. « Mettre en ligne » les ajoute à l'album de la saison de l'équipe sur SportsRegions.
-- **Actualités** : titre, chapô, texte, équipe et illustration. « Mettre en ligne » les publie sur SportsRegions. « ✔ Déjà en ligne » régularise un article sans le renvoyer au site.
+- **Actualités** : titre, chapô, texte, équipe et illustration. « Mettre en ligne » les publie sur SportsRegions.
+- **Qui publie** : seuls les **admins et référents** créent et mettent en ligne (photos comme actualités) ; seuls les admins suppriment. Même règle côté base (RLS `publications_*` et `news_*` dans `rls_policies.sql`). « ✔ Déjà en ligne » régularise un article sans le renvoyer au site.
 
 **Bénévoles et administration**
 - Inscription libre, puis validation par un admin (`pending` → `approved`). Rôles, équipes et habilitations se gèrent dans `AdminUsersPage`.
@@ -142,7 +143,7 @@ SportsRegions **n'a pas d'API** : la fonction imite un navigateur sur `admin.spo
 5. **Équipes → groupe SportsRegions** : table `TEAM_GROUPE_IDS` en haut du fichier. **À compléter à chaque nouvelle équipe.**
 
 **Pièges connus**
-- **Faux échec 503 à la mise en ligne** : SportsRegions renvoie parfois une erreur 503 alors que l'article est bien en ligne. Depuis octobre 2026, la fonction relit `/actualite/edit/{id}` et cherche « Statut : en ligne » avant de déclarer un échec (`isNewsOnline`). **Ne jamais relancer automatiquement la mise en ligne**, sous peine de doublon. Pour régulariser un article déjà en ligne, il y a le bouton admin « ✔ Déjà en ligne » dans `PublicationsPage`, qui passe `synced` à `true` sans appeler le site.
+- **Faux échec 503 à la mise en ligne** : SportsRegions renvoie parfois une erreur 503 alors que l'article est bien en ligne. Depuis octobre 2026, la fonction relit `/actualite/edit/{id}` et cherche « Statut : en ligne » avant de déclarer un échec (`isNewsOnline`). **Ne jamais relancer automatiquement la mise en ligne**, sous peine de doublon. Pour régulariser un article déjà en ligne, il y a le bouton « ✔ Déjà en ligne » (admin ou référent) dans `PublicationsPage`, qui passe `synced` à `true` sans appeler le site.
 - Toute modification du site SportsRegions (noms de champs, jetons) peut casser l'intégration. Il faut alors regarder les messages `jetons: …` dans l'erreur et comparer avec le formulaire réel dans l'admin.
 
 ## 6. Relais vers Facebook : dépôt `bcmf-web/bcmf-facebook`

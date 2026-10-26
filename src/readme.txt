@@ -38,7 +38,7 @@ Rôles (users.role) :
 
 * benevole  : voir les événements, s'inscrire aux missions, voir les partenaires
 * referent  : + créer et gérer les événements de son équipe, affiches, publications
-* admin     : + utilisateurs, équipes et compétences, statistiques, mise en ligne
+* admin     : + utilisateurs, équipes et compétences, statistiques, suppression des publications
 
 Statuts de compte (users.status) :
 
@@ -105,8 +105,8 @@ Tables : publications (photos), news (actualités). Champ synced = déjà en lig
 
 * Photos : équipe, photos, légende facultative → album « Saison AAAA-AAAA - Équipe »
 * Actualités : titre, chapô, texte, équipe, illustration
-* « Mettre en ligne » (admin) → Edge Function sync-sportsregions
-* « ✔ Déjà en ligne » (admin) : marque comme publié sans renvoyer au site
+* « Mettre en ligne » (admin ou référent) → Edge Function sync-sportsregions
+* « ✔ Déjà en ligne » (admin ou référent) : marque comme publié sans renvoyer au site
   (cas d'une erreur 503 alors que l'article est bien en ligne)
 
 ====================================================

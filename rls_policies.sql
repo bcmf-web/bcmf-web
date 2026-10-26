@@ -311,15 +311,19 @@ CREATE POLICY "news_select"
 ON news FOR SELECT TO authenticated
 USING (true);
 
--- Seul un admin peut publier une actualité
+-- Admin et référent peuvent publier une actualité (pas les bénévoles)
 CREATE POLICY "news_insert"
 ON news FOR INSERT TO authenticated
-WITH CHECK ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+WITH CHECK (
+  (SELECT role FROM users WHERE id = auth.uid()) IN ('admin', 'referent')
+);
 
--- Seul un admin peut modifier une actualité
+-- Admin et référent peuvent modifier (ex : passage à synced=true après mise en ligne)
 CREATE POLICY "news_update"
 ON news FOR UPDATE TO authenticated
-USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+USING (
+  (SELECT role FROM users WHERE id = auth.uid()) IN ('admin', 'referent')
+);
 
 -- Seul un admin peut supprimer une actualité
 CREATE POLICY "news_delete"
