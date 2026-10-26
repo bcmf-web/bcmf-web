@@ -57,6 +57,36 @@ Une seule page React. La navigation se fait par un état `page` dans `src/App.js
 - **PWA** : `public/manifest.json` et `public/sw.js` (cache hors ligne).
 - **Pages statiques** dans `public/` : `lf2-intro.html` (page d'intro LF2 et vidéo), `rejoindre.html` (intégrable en iframe), `rejoindre-sportsregions.html`.
 
+### Fonctionnalités en détail
+
+**Événements et missions** (`EventPage`, `components/MissionCard.jsx`, `components/PlanningView.jsx`)
+- Un événement contient des missions avec un créneau horaire. Le passage de minuit est géré : si la fin est avant le début, on ajoute 24 h.
+- Les bénévoles s'inscrivent à une mission, éventuellement sur une partie seulement du créneau. Un admin peut inscrire un bénévole habilité, avec la liste filtrée selon les `skills`.
+- La vue **Planning** affiche une frise horaire avec la couverture réelle de chaque mission, minute par minute.
+- Exports CSV et PDF de l'événement et du planning (`utils/exportUtils.js`, avec jsPDF et jspdf-autotable).
+- Rappel push 24 h avant chaque mission (`notify-upcoming-missions`). Envoi de notifications push depuis l'appli (`send-push`, `services/pushNotifications.js`).
+
+**Affiches** (`GameDayPage`). Tout est dessiné **dans le navigateur**, sur un canvas. Aucune photo n'est envoyée à un service externe.
+- Trois types d'affiche :
+  - **🏀 Game Day** (avant match, 1600×2000) : équipe, jour, date, heure, salle, ville, logo adverse, choix du logo placé à gauche (BCMF ou adversaire). Moteur : `services/gamedayRender.js`.
+  - **🏆 Victoire / Défaite** : scores BCMF et adversaire, journée ou compétition. Deux modèles : « Fond vert + équipe détourée » ou « Photo plein fond + panneau vert ». Moteur : `services/gamedayPosters.js` (`renderResultPoster`).
+  - **⭐ MVP** (carré 1600×1600) : prénom et nom, numéro de maillot, contexte (« Finale »…), jusqu'à 4 statistiques modifiables (PTS, REB, PD, EVAL), recadrage de la photo (zoom, point focal). Moteur : `renderMvpPoster`.
+- **Détourage de la photo d'équipe** (`services/gamedayCutout.js`) : modèle IS-Net quantifié (`public/gameday/isnet-q.onnx`, 46 Mo) exécuté par `onnxruntime-web`, dont les fichiers WASM sont chargés depuis le CDN jsdelivr. Deux passes, avec nettoyage du masque : les trous du visage et du torse sont bouchés, les lignes du sol retirées. Deux styles : « Détourée (bords nets) » ou « Fondu (bords adoucis) ». Le résultat est gardé en mémoire pour pouvoir retoucher sans relancer le modèle.
+- **Retouche manuelle du détourage** : `components/CutoutEditor.jsx`, pinceau « 🖌️ Restaurer » (rendre une partie coupée) et « 🧽 Gommer » (retirer du fond).
+- **Logo adverse** (`prepLogo`) : suppression automatique du fond blanc et recadrage, ou mise dans un badge à fond blanc.
+- Ressources graphiques dans `public/gameday/` (`bg.jpg`, `bg-mask.png`, `bcmf-logo.png`). Polices : Barlow Condensed, Kaushan Script et Playfair Display (`@fontsource`).
+- **Sortie** : téléchargement en JPEG, ou **publication directe** après envoi dans Storage `bcmf-media`. L'affiche part soit dans l'**album photo** de l'équipe, soit comme **actualité** avec l'affiche en illustration. Le titre est pré-rempli, par exemple « Victoire U11 F : 79 - 53 ». La publication enregistre aussi une ligne dans `publications` ou `news`.
+
+**Publications** (`PublicationsPage`)
+- **Photos** : les photos sont envoyées dans Storage puis enregistrées dans `publications`. « Mettre en ligne » les ajoute à l'album de la saison de l'équipe sur SportsRegions.
+- **Actualités** : titre, chapô, texte, équipe et illustration. « Mettre en ligne » les publie sur SportsRegions. « ✔ Déjà en ligne » régularise un article sans le renvoyer au site.
+
+**Bénévoles et administration**
+- Inscription libre, puis validation par un admin (`pending` → `approved`). Rôles, équipes et habilitations se gèrent dans `AdminUsersPage`.
+- Import en masse de bénévoles depuis un fichier Excel ou CSV (`services/bulkImportVolunteers.js` et la fonction `bulk-add-volunteers`, avec un mot de passe générique commun).
+- Partenaires classés par catégorie (Commerces, Restauration, Industriels, BTP, Loisirs), import depuis le site WordPress du club (`add-partners`).
+- Statistiques de bénévolat et exports (`AdminStatsPage`).
+
 ## 3. Base Supabase
 
 Principales tables :
