@@ -27,7 +27,6 @@ export default function PublicationsPage({ currentUser, onBack }) {
 
   const isAdmin    = currentUser.role === "admin";
   const isReferent = currentUser.role === "referent";
-  const canPublish = isAdmin || isReferent; // seuls admins et référents publient
 
   const userTeamNames = isAdmin
     ? allTeams.map((t) => t.name)
@@ -298,7 +297,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={onBack} style={styles.backButton}>← Retour</button>
         <h2 style={{ margin: 0, color: GREEN_DARK, fontSize: isMobile ? 20 : 26 }}>📣 Publications</h2>
-        {canPublish && (
+        {((tab === "photos" && (isAdmin || isReferent)) || (tab === "news" && isAdmin)) && (
           <span style={{ marginLeft: "auto" }}>
             <button
               onClick={() => setShowForm(!showForm)}
@@ -329,7 +328,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
       </div>
 
       {/* ── Formulaire Photos ── */}
-      {showForm && tab === "photos" && canPublish && (
+      {showForm && tab === "photos" && (isAdmin || isReferent) && (
         <form onSubmit={handlePhotoSubmit} style={formStyle}>
           <h3 style={{ margin: "0 0 18px", color: GREEN_DARK }}>Nouvelle publication photos</h3>
           <div style={{ display: "grid", gap: 14 }}>
@@ -383,7 +382,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
       )}
 
       {/* ── Formulaire News (admin seulement) ── */}
-      {showForm && tab === "news" && canPublish && (
+      {showForm && tab === "news" && isAdmin && (
         <form onSubmit={handleNewsSubmit} style={formStyle}>
           <h3 style={{ margin: "0 0 18px", color: GREEN_DARK }}>Nouvelle actualité</h3>
           <div style={{ display: "grid", gap: 14 }}>
@@ -436,7 +435,7 @@ export default function PublicationsPage({ currentUser, onBack }) {
                     <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Publié par {pub.published_by} · {formatDate(pub.created_at)}</div>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {canPublish && !pub.synced && (
+                    {(isAdmin || isReferent) && !pub.synced && (
                       <button onClick={() => handlePhotoSync(pub)} disabled={syncing === pub.id} style={syncBtnStyle(syncing === pub.id)}>
                         {syncing === pub.id ? "⏳ Envoi..." : "🌐 Mettre en ligne"}
                       </button>
@@ -483,12 +482,12 @@ export default function PublicationsPage({ currentUser, onBack }) {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                  {canPublish && !news.synced && (
+                  {isAdmin && !news.synced && (
                     <button onClick={() => handleNewsSync(news)} disabled={syncing === news.id} style={syncBtnStyle(syncing === news.id)}>
                       {syncing === news.id ? "⏳ Envoi..." : "🌐 Mettre en ligne"}
                     </button>
                   )}
-                  {canPublish && !news.synced && (
+                  {isAdmin && !news.synced && (
                     <button onClick={() => handleNewsMarkSynced(news)} disabled={syncing === news.id} style={deleteBtnStyle}>
                       ✔ Déjà en ligne
                     </button>
