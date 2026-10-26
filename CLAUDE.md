@@ -17,9 +17,15 @@ Supabase (projet lvxlewregtqilzraoxkl)
    ├─ Base Postgres → tables ci-dessous (RLS : rls_policies.sql)
    ├─ Storage → bucket « bcmf-media » (photos, illustrations)
    └─ Edge Functions (Deno) ──► admin.sportsregions.fr (site du club)
-                              └► montbrison-forezbasketfeminin.com (WordPress)
+                              ├► montbrison-forezbasketfeminin.com (WordPress)
+                              └► Facebook Graph API (lecture des posts de la Page)
 Hébergement front : Vercel (déploiement auto à chaque push sur main)
+
+Dépôt séparé bcmf-web/bcmf-facebook (GitHub Actions, toutes les 30 min) :
+   bcmf.sportsregions.fr (RSS actus + albums photo) ──► Page Facebook du club
 ```
+
+La chaîne de publication complète : **BCMF Crew** (actualité, photos, affiche) → **SportsRegions** (`sync-sportsregions`) → **Facebook** (`bcmf-facebook`, automatiquement, dans les 30 min).
 
 | Élément | Où |
 |---|---|
@@ -29,6 +35,8 @@ Hébergement front : Vercel (déploiement auto à chaque push sur main)
 | Site public du club | `bcmf.sportsregions.fr` |
 | Admin du site du club | `admin.sportsregions.fr` (site ID **28604**). L'édition d'un article se fait sur `/actualite/edit/{id}` |
 | Dashboard Supabase | supabase.com/dashboard, projet `lvxlewregtqilzraoxkl` |
+| Relais Facebook | dépôt `bcmf-web/bcmf-facebook` (voir section 6) |
+| Page Facebook du club | `facebook.com/profile.php?id=61581146454440` |
 
 ## 2. Front : `src/`
 
@@ -115,6 +123,7 @@ Fichiers SQL : `rls_policies.sql` (politiques RLS), `supabase/notify_upcoming_mi
 | `add-partners` | Récupère les partenaires sur le site WordPress du club et les ajoute sur SportsRegions | `SR_EMAIL`, `SR_PASSWORD` |
 | `bulk-add-volunteers` | Crée des comptes bénévoles en masse (réservé aux admins, contrôle du JWT) | `SUPABASE_SERVICE_ROLE_KEY` |
 | `send-push` | Envoie des notifications Web Push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
+| `facebook-posts` | Renvoie les 6 derniers posts de la Page Facebook (lecture seule, cache de 10 min). Utilisée par `public/facebook-feed.html`, un widget « Actus Facebook » intégrable en iframe. Le jeton ne quitte jamais le serveur. | `FB_PAGE_ID`, `FB_PAGE_TOKEN` |
 | `notify-upcoming-missions` | Rappel 24 h avant une mission (appelée par un cron `pg_net`) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_*` |
 
 Les secrets se règlent dans Dashboard Supabase → Edge Functions → Secrets. Ne jamais les écrire dans le code.
@@ -136,19 +145,35 @@ SportsRegions **n'a pas d'API** : la fonction imite un navigateur sur `admin.spo
 - **Faux échec 503 à la mise en ligne** : SportsRegions renvoie parfois une erreur 503 alors que l'article est bien en ligne. Depuis octobre 2026, la fonction relit `/actualite/edit/{id}` et cherche « Statut : en ligne » avant de déclarer un échec (`isNewsOnline`). **Ne jamais relancer automatiquement la mise en ligne**, sous peine de doublon. Pour régulariser un article déjà en ligne, il y a le bouton admin « ✔ Déjà en ligne » dans `PublicationsPage`, qui passe `synced` à `true` sans appeler le site.
 - Toute modification du site SportsRegions (noms de champs, jetons) peut casser l'intégration. Il faut alors regarder les messages `jetons: …` dans l'erreur et comparer avec le formulaire réel dans l'admin.
 
-## 6. Déployer
+## 6. Relais vers Facebook : dépôt `bcmf-web/bcmf-facebook`
+
+C'est un dépôt **séparé**, sans lien avec Supabase ni Vercel. Il republie automatiquement sur la **Page Facebook du club** ce qui paraît sur `bcmf.sportsregions.fr`. Rien à faire depuis l'appli : publier sur SportsRegions suffit.
+
+- **`sync.py`** (Python, sans dépendance) :
+  - Actualités : lues dans le flux RSS `bcmf.sportsregions.fr/rss/news`. Publiées sur Facebook en post texte complet avec le lien.
+  - Albums photo : lus dans le HTML de `/photos-du-club` (10 albums par page, 5 pages au maximum). Un **nouvel album** donne un post avec jusqu'à 8 photos et le lien. Des **photos ajoutées** à un album existant donnent un post « 📸 Album : N nouvelles photos ajoutées ».
+  - **Équipe exclue : `LF2`.** Rien n'est publié si « LF2 » est dans le titre, ou si LF2 est la **seule** équipe étiquetée. Un contenu LF2 + autres équipes reste publié. Voir `EXCLUDED_TEAM`.
+  - Le contenu de plus de 7 jours est ignoré (`MAX_AGE_DAYS`). Au tout premier lancement, l'existant est mémorisé sans rien publier.
+- **`state.json`** : mémoire de ce qui a déjà été publié (ID des actus, et URL des photos connues par album). Il est mis à jour et commité **par le bot** (« maj état publications ») après chaque passage. **Ne pas le modifier à la main**, sauf pour forcer ou empêcher une republication.
+- **`.github/workflows/sync.yml`** : GitHub Actions, toutes les 30 min (aux minutes 2 et 33), plus un lancement manuel possible (onglet Actions → « BCMF -> Facebook » → Run workflow). Variable `DRY_RUN="0"`, donc publication réelle.
+- **Secrets GitHub** (Settings → Secrets → Actions du dépôt) : `FB_PAGE_ID`, `FB_PAGE_TOKEN`. Les mêmes valeurs servent pour la fonction Supabase `facebook-posts`.
+- **`check_token.py`** : vérifie le jeton de Page sans rien publier. Il doit être de type PAGE, sans expiration, avec les permissions `pages_manage_posts` et `pages_read_engagement`. L'option `--test-post` crée un brouillon puis le supprime.
+
+**Si Facebook ne publie plus** : regarder l'onglet **Actions** du dépôt. Une erreur `Facebook 190`, par exemple, signifie un jeton expiré ou révoqué : il faut générer un nouveau jeton de Page longue durée, mettre à jour le secret GitHub **et** le secret Supabase, puis vérifier avec `check_token.py`. Si SportsRegions change le HTML de `/photos-du-club`, les expressions régulières de `fetch_albums()` et `album_photos()` sont à revoir.
+
+## 7. Déployer
 
 - **Front** : `git push` sur `main`, et Vercel publie automatiquement.
 - **Edge Functions** : depuis le PC de Rodolphe, **le CLI Supabase ne fonctionne pas** (le réseau d'entreprise bloque son téléchargement, et la commande `supabase` installée est cassée). On passe donc par le **Dashboard Supabase → Edge Functions → la fonction → onglet Code** : coller le contenu du fichier, puis **Deploy**. Sur une machine où le CLI marche : `supabase functions deploy <nom>`.
 - Après un changement de fonction, pousser **aussi** le code sur GitHub, pour que le dépôt reste la référence.
 
-## 7. Pièges de l'environnement
+## 8. Pièges de l'environnement
 
 - La copie locale est dans **OneDrive** : Git y est lent et peut bloquer (verrous sur `.git`, questions « Deletion of directory … failed. Should I try again? »). Dans ce cas, répondre `n`.
-- La copie locale contient des fichiers **absents de GitHub** : fonction `facebook-posts`, `public/facebook-feed.html`, `public/favicon-bcmf.png`… Les pousser ou les écarter volontairement, mais ne pas les supposer en ligne.
+- La copie locale peut contenir des fichiers **absents de GitHub** (par exemple `public/favicon-bcmf.png`). Vérifier avant de supposer qu'un fichier est sauvegardé ou en ligne.
 - Le README Vite à la racine est celui du modèle de départ. La doc fonctionnelle historique est dans `src/readme.txt`.
 
-## 8. Conventions
+## 9. Conventions
 
 - JavaScript/JSX côté front, TypeScript côté Edge Functions, styles en objets inline (`src/styles/styles.js`), thème vert, blanc et noir (vert principal `#16a34a`, vert foncé `#14532d`).
 - Messages et alertes en français, compréhensibles par des bénévoles non techniciens.

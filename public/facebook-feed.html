@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Actus Facebook BCMF</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 10px; font-family: Arial, sans-serif; background: #fff; color: #222; }
+  .post { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e5e5e5; text-decoration: none; color: inherit; }
+  .post:last-of-type { border-bottom: 0; }
+  .post img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; flex: none; background: #eee; }
+  .date { font-size: 12px; color: #00a05a; font-weight: bold; margin-bottom: 3px; }
+  .txt { font-size: 14px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .more { display: block; text-align: center; margin-top: 12px; background: #1877F2; color: #fff; text-decoration: none; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 14px; }
+  .state { text-align: center; color: #666; font-size: 14px; padding: 20px 0; }
+</style>
+</head>
+<body>
+<div id="feed" class="state">Chargement…</div>
+<a class="more" id="more" href="https://www.facebook.com/profile.php?id=61581146454440" target="_blank" rel="noopener noreferrer">Voir la page Facebook</a>
+
+<script>
+const ENDPOINT = "https://lvxlewregtqilzraoxkl.supabase.co/functions/v1/facebook-posts";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2eGxld3JlZ3RxaWx6cmFveGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjUzMzAsImV4cCI6MjA5NTU0MTMzMH0.axt9gsmoFYJvPtnqES0vwfKhkMfzNzSt9za8SyiGiHo";
+const feed = document.getElementById("feed");
+
+function fmt(d) {
+  return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+fetch(ENDPOINT, { headers: { apikey: ANON, Authorization: "Bearer " + ANON } })
+  .then(r => r.json())
+  .then(({ posts, error }) => {
+    if (error || !posts) throw new Error(error || "vide");
+    if (!posts.length) { feed.textContent = "Aucune publication pour le moment."; return; }
+    feed.className = "";
+    feed.textContent = "";
+    for (const p of posts) {
+      const a = document.createElement("a");
+      a.className = "post";
+      a.href = p.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      if (p.image) { const im = document.createElement("img"); im.src = p.image; im.alt = ""; im.loading = "lazy"; a.appendChild(im); }
+      const box = document.createElement("div");
+      const d = document.createElement("div"); d.className = "date"; d.textContent = fmt(p.created_time);
+      const t = document.createElement("div"); t.className = "txt"; t.textContent = p.message || "Voir la publication";
+      box.append(d, t);
+      a.appendChild(box);
+      feed.appendChild(a);
+    }
+  })
+  .catch(() => { feed.textContent = "Publications indisponibles pour le moment."; });
+</script>
+</body>
+</html>
